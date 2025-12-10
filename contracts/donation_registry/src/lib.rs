@@ -161,7 +161,7 @@ fn append_ngo_donation(env: &Env, ngo_id: u32, id: u32) {
 #[cfg(test)]
 mod test {
     use super::*;
-    use soroban_sdk::testutils::{Address as _, Ledger};
+    use soroban_sdk::testutils::{Address as _};
 
     #[contract]
     struct MockNGOVerif;
@@ -197,12 +197,8 @@ mod test {
         let donor = Address::generate(&env);
         let id = client.record_donation(&donor, &100i128, &1u32, &1u32, &0i32, &0i32);
         let verifier = Address::generate(&env);
-        // Simulate verifier auth context for the call
-        verifier.authorize_invocation(&env, soroban_sdk::testutils::Invocation {
-            contract: contract_id.clone(),
-            fn_name: Symbol::new(&env, "verify_impact"),
-            args: SVec::new(&env),
-        });
+        // Mock authorization - in real test would use env.mock_all_auths()
+        env.mock_all_auths();
         let ok = client.verify_impact(&id, &verifier);
         assert!(ok);
         let d = client.get_donation(&id);

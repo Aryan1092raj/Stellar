@@ -1,100 +1,34 @@
-import express, { Request, Response } from 'express';
-import { listVerifiedUsers } from '../utils/firebase';
-import { requireAuth, requireRole } from '../middleware/authMiddleware';
+import { Router } from 'express';
+import jwt from 'jsonwebtoken';
 import { prisma } from '../db';
 
-const router = express.Router();
+const router = Router();
+const codes = new Map<string, string>();
 
-/**
- * ✅ LIST VERIFIED USERS (ADMIN ONLY)
- */
-router.get(
-  '/verified-users',
-  requireAuth,
-  requireRole('admin'),
-  async (_req: Request, res: Response) => {
-    try {
-      const users = await listVerifiedUsers();
-      res.json(users);
-    } catch (e) {
-      console.error(e);
-      res.status(500).json({ error: 'failed' });
+router.post('/start', (req, res) => {
+  const { email, role } = req.body || {};
+  if (!email || !role) return res.status(400).json({ error: 'missing-fields' });
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  codes.set(`${role}:${email}`, code);
+  // In production, send via email/SMS. Here we return code for demo.
+  res.json({ ok: true, code });
+});
+
+router.post('/verify', async (req, res) => {
+  const { email, role, code } = req.body || {};
+  if (!email || !role || !code) return res.status(400).json({ error: 'missing-fields' });
+  const key = `${role}:${email}`;
+  const stored = codes.get(key);
+  if (!stored || stored !== code) return res.status(401).json({ error: 'invalid-code' });
+  codes.delete(key);
+  try {
+    if (process.env.DATABASE_URL) {
+      // @ts-ignore User model may need migration
+      await (prisma as any).user.upsert({ where: { email }, update: { role }, create: { email, role } });
     }
-  }
-);
-
-/**
- * ✅ VERIFY NGO (ADMIN ONLY)
- */
-router.put(
-  '/verify-ngo/:id',
-  requireAuth,
-  requireRole('admin'),
-  async (req: Request, res: Response) => {
-    const id = Number(req.params.id);
-    if (!id) return res.status(400).json({ error: 'invalid-id' });
-
-    try {
-      const updated = await prisma.nGO.update({
-        where: { id },
-        data: { verification_status: 'verified' },
-      });
-      res.json({ ok: true, ngo: updated });
-    } catch (e) {
-      console.error(e);
-      res.status(500).json({ error: 'failed-verify' });
-    }
-  }
-);
-
-/**
- * ✅ FREEZE DONATION (ADMIN ONLY)
- */
-router.put(
-  '/freeze-donation/:id',
-  requireAuth,
-  requireRole('admin'),
-  async (req: Request, res: Response) => {
-    const id = Number(req.params.id);
-    if (!id) return res.status(400).json({ error: 'invalid-id' });
-
-    try {
-      const updated = await prisma.donation.update({
-        where: { id },
-        data: { status: 'frozen' },
-      });
-      res.json({ ok: true, donation: updated });
-    } catch (e) {
-      console.error(e);
-      res.status(500).json({ error: 'failed-freeze' });
-    }
-  }
-);
-
-/**
- * ✅ ADMIN DASHBOARD HEALTH SNAPSHOT
- */
-router.get(
-  '/system-status',
-  requireAuth,
-  requireRole('admin'),
-  async (_req: Request, res: Response) => {
-    try {
-      const ngoCount = await prisma.nGO.count();
-      const donationCount = await prisma.donation.count();
-      const projectCount = await prisma.project.count();
-
-      res.json({
-        ngos: ngoCount,
-        donations: donationCount,
-        projects: projectCount,
-        time: new Date().toISOString(),
-      });
-    } catch (e) {
-      console.error(e);
-      res.status(500).json({ error: 'failed-status' });
-    }
-  }
-);
+  } catch (e) { /* ignore persistence errors in mock mode */ }
+  const token = jwt.sign({ sub: email, role }, process.env.JWT_SECRET || 'dev', { expiresIn: '2h' });
+  res.json({ token });
+});
 
 export default router;

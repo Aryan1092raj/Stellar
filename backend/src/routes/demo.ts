@@ -1,6 +1,6 @@
-import { Router, Request, Response } from 'express';
-import { DEMO_WALLETS, DEMO_WALLET_BALANCES, getDemoWallet, isDemoWallet } from '../demo-data';
-import { mockDonationsRef } from './donations';
+import { Router, Request, Response } from "express";
+import { DEMO_WALLETS, DEMO_WALLET_BALANCES, getDemoWallet, isDemoWallet } from "../demo-data";
+import { mockDonationsRef } from "./donations";
 
 const router = Router();
 
@@ -154,4 +154,4 @@ router.get('/status', (_req: Request, res: Response) => {
   });
 });
 
-export const demoRouter = router;
+export default router;

@@ -1,10 +1,10 @@
-import express from 'express';
+import { Router } from 'express';
 import { sendEmail } from '../utils/email';
 import { storeOtp, getOtp, deleteOtp, incrementSendCount } from '../utils/otpStore';
 import { saveVerifiedUser } from '../utils/firebase';
 import jwt from 'jsonwebtoken';
 
-const router = express.Router();
+const router = Router();
 
 // Simple in-memory OTP store: Map<email, { code, expiresAt }>
 const otpStore: Map<string, { code: string; expiresAt: number }> = new Map();

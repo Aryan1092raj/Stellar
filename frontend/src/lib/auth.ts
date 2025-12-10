@@ -21,7 +21,7 @@ export async function verifyOtp(email: string, otp: string, role: string) {
   const res = await fetch(`${API}/api/otp/verify`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, otp, role }),
+    body: JSON.stringify({ email, code: otp, role }),
   });
 
   const data = await res.json();
