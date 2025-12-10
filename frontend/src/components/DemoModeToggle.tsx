@@ -27,7 +27,8 @@ export default function DemoModeToggle() {
   const fetchDemoAccounts = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:4000/api/demo/accounts');
+      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+      const response = await fetch(`${API_URL}/api/demo/accounts`);
       const data = await response.json();
       if (data.success && data.accounts) {
         setDemoAccounts(data.accounts);

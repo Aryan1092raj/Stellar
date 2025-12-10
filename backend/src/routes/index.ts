@@ -1,18 +1,18 @@
 import { Router } from "express";
 
-import authRoutes from "./auth.routes";
-import organizationsRoutes from "./organizations.routes";
-import donationsRoutes from "./donations";
-import voiceAgentRoutes from "./voiceAgent.routes";
-import chatRoutes from "./chat";
-import demoRoutes from "./demo";
-import evidenceRoutes from "./evidence";
-import adminRoutes from "./admin";
-import healthRoutes from "./health.routes";
-import impactRoutes from "./impact";
-import ngosRoutes from "./ngos";
-import otpRoutes from "./otp";
-import projectsRoutes from "./projects";
+import authRoutes from "./auth.routes.js";
+import organizationsRoutes from "./organizations.routes.js";
+import donationsRoutes from "./donations.js";
+import voiceAgentRoutes from "./voiceAgent.routes.js";
+import chatRoutes from "./chat.js";
+import demoRoutes from "./demo.js";
+import evidenceRoutes from "./evidence.js";
+import adminRoutes from "./admin.js";
+import healthRoutes from "./health.routes.js";
+import impactRoutes from "./impact.js";
+import ngosRoutes from "./ngos.js";
+import otpRoutes from "./otp.js";
+import projectsRoutes from "./projects.js";
 
 
 // console.log("ROUTE TYPES:", {

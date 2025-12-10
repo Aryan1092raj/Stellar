@@ -3,10 +3,10 @@ import cors from 'cors';
 import helmet from "helmet";
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
-import routes from './routes';
-import { config } from './config/env';
-import { errorHandler, notFoundHandler } from './middleware/errorHandler';
-import { initializeDatabase } from './config/database';
+import routes from './routes/index.js';
+import { config } from './config/env.js';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { initializeDatabase } from './config/database.js';
 import { logger } from './utils/logger.js';
 
 console.log("FRONTEND_URL ACTUAL VALUE:", config.FRONTEND_URL);
@@ -17,10 +17,10 @@ app.use(cookieParser());            // THEN USE PLUGINS
 app.use(helmet());
 
 // CORS configuration
-// app.use(cors({
-//   origin: config.FRONTEND_URL,
-//   credentials: true,
-// }));
+app.use(cors({
+  origin: config.FRONTEND_URL,
+  credentials: true,
+}));
 
 console.log({
   corsType: typeof cors,

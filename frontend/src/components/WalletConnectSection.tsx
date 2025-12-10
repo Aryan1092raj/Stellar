@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 
 export default function WalletConnectSection() {
   const [publicKey, setPublicKey] = useState<string | null>(null);
-  const [network, setNetwork] = useState<string>(process.env.NEXT_PUBLIC_NETWORK || 'testnet');
+  const [network, setNetwork] = useState<string>(process.env.NEXT_PUBLIC_STELLAR_NETWORK || 'testnet');
   const [balance, setBalance] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

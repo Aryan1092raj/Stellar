@@ -1,4 +1,4 @@
-const API = process.env.NEXT_PUBLIC_API_URL;
+const API = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 // ===== OTP FLOW =====
 

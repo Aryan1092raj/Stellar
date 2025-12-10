@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
-import app from "./app";
-import "./uploads/ipfs";
+import app from "./app.js";
+import "./uploads/ipfs.js";
 
 dotenv.config();
 

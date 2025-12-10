@@ -54,7 +54,7 @@ export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { la
 
       // ✅ 2. Persist OFF-CHAIN using SECURE AUTH FETCH
       const res = await authFetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/donations`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/donations`,
         {
           method: 'POST',
           body: JSON.stringify({
