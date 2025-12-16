@@ -9,7 +9,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { initializeDatabase } from './config/database.js';
 import { logger } from './utils/logger.js';
 
-console.log("FRONTEND_URL ACTUAL VALUE:", config.FRONTEND_URL);
+// console.log("FRONTEND_URL ACTUAL VALUE:", config.FRONTEND_URL);
 
 const app = express();              // CREATE APP FIRST
 app.use(cookieParser());            // THEN USE PLUGINS
@@ -18,9 +18,21 @@ app.use(helmet());
 
 // CORS configuration
 app.use(cors({
-  origin: config.FRONTEND_URL,
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+
+    if (
+      origin === "http://localhost:3000" ||
+      origin.endsWith(".vercel.app")
+    ) {
+      return callback(null, true);
+    }
+
+    return callback(new Error("Not allowed by CORS"));
+  },
   credentials: true,
 }));
+
 
 console.log({
   corsType: typeof cors,
