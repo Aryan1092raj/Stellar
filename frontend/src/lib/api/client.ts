@@ -20,7 +20,8 @@ export interface Donation {
   created_at: string;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || '';
+const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || '';
+
 function getToken() {
   if (typeof window === 'undefined') return '';
   return localStorage.getItem('geoledger_token') || '';
