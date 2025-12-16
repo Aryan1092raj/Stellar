@@ -66,7 +66,8 @@ console.log("ROUTES TYPE:", typeof routes);
 
 
 // API routes
-app.use(routes);
+app.use("/api", routes);
+
 
 // 404 handler
 app.use(notFoundHandler);
