@@ -24,7 +24,7 @@ const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 
 function getToken() {
   if (typeof window === 'undefined') return '';
-  return localStorage.getItem('geoledger_token') || '';
+  return localStorage.getItem('token') || '';
 }
 
 // NGO Types & API
@@ -43,7 +43,14 @@ export async function listNGOs(): Promise<NGOItem[]> {
 }
 
 export async function createNGO(input: { name: string; wallet_address: string; sector?: string }): Promise<NGOItem> {
-  const res = await fetch(`${API_BASE}/api/ngos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
+  const res = await fetch(`${API_BASE}/api/ngos`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: getToken() ? `Bearer ${getToken()}` : '',
+    },
+    body: JSON.stringify(input),
+  });
   if (!res.ok) throw new Error('ngos-create-failed');
   return res.json();
 }
@@ -59,7 +66,9 @@ export async function createDonation(input: DonationInput): Promise<Donation> {
 }
 
 export async function listDonations(): Promise<Donation[]> {
-  const res = await fetch(`${API_BASE}/api/donations`);
+  const res = await fetch(`${API_BASE}/api/donations`, {
+    headers: { Authorization: getToken() ? `Bearer ${getToken()}` : '' },
+  });
   if (!res.ok) throw new Error('list-failed');
   return res.json();
 }

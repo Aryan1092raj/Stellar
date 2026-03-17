@@ -75,22 +75,23 @@ export default function NGODashboard() {
     setUploadStatus('uploading');
     try {
       // Upload to evidence API
-      const res = await fetch('/api/evidence', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/evidence/upload`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify({
-          donation_id: newUpdate.donation_id,
-          content: JSON.stringify({
+        body: (() => {
+          const form = new FormData();
+          const blob = new Blob([JSON.stringify({
             title: newUpdate.title,
             description: newUpdate.description,
             image_url: newUpdate.image_url,
             progress_percentage: newUpdate.progress_percentage,
             timestamp: new Date().toISOString(),
-          }),
-        }),
+          })], { type: 'application/json' });
+          form.append('file', blob, 'update.json');
+          return form;
+        })(),
       });
 
       if (!res.ok) throw new Error('Upload failed');
@@ -98,7 +99,7 @@ export default function NGODashboard() {
       const evidenceData = await res.json();
 
       // Update donation with evidence URL
-      const updateRes = await fetch(`/api/donations/${newUpdate.donation_id}/evidence`, {
+      const updateRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/donations/${newUpdate.donation_id}/evidence`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

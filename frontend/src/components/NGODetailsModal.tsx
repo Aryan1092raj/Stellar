@@ -48,7 +48,9 @@ export default function NGODetailsModal({ ngo, open, onClose }: Props) {
     setLoading(true);
     try {
       // Fetch all donations
-      const res = await fetch('/api/donations');
+      const res = await fetch('/api/donations', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+      });
       if (res.ok) {
         const allDonations = await res.json();
         const ngoDonations = allDonations.filter((d: Donation) => d.status !== 'failed');

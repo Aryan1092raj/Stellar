@@ -22,7 +22,7 @@ const NGOSchema = z.object({
 router.post(
   '/',
   requireAuth,
-  requireRole('admin'),
+  requireRole('ngo'),
   (req: Request, res: Response) => {
     const parsed = NGOSchema.safeParse(req.body);
     if (!parsed.success) {
