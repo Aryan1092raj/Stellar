@@ -1,7 +1,7 @@
-import express from 'express';
+import { Router } from 'express';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const router = express.Router();
+const router = Router();
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');

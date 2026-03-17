@@ -31,7 +31,8 @@ export default function Chatbot() {
   // Load suggestions
   useEffect(() => {
     if (isOpen && suggestions.length === 0) {
-      fetch('http://localhost:4000/api/chat/suggestions')
+      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+      fetch(`${API_URL}/api/chat/suggestions`)
         .then(res => res.json())
         .then(data => setSuggestions(data.suggestions))
         .catch(err => console.error('Failed to load suggestions:', err));
@@ -59,7 +60,8 @@ export default function Chatbot() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:4000/api/chat/message', {
+      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+      const response = await fetch(`${API_URL}/api/chat/message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

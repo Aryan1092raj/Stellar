@@ -1,8 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db';
+import { DEMO_NGOS } from '../demo-data';
+import { requireAuth, requireRole } from '../middleware/authMiddleware';
+
 const useMock = !process.env.DATABASE_URL;
-import { donationsRouter } from './donations';
+const mockStore: any[] = [...DEMO_NGOS];
 
 const router = Router();
 
@@ -28,4 +31,4 @@ router.post('/', (req: Request, res: Response) => {
   });
 });
 
-export const impactRouter = router;
+export default router;

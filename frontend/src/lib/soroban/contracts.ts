@@ -16,7 +16,7 @@ function getFreighter(): Freighter {
   return f as Freighter;
 }
 
-const NETWORK_PASSPHRASE = process.env.NEXT_PUBLIC_NETWORK === 'futurenet'
+const NETWORK_PASSPHRASE = process.env.NEXT_PUBLIC_STELLAR_NETWORK === 'futurenet'
   ? 'Test SDF Future Network ; October 2022'
   : 'Test SDF Network ; September 2015';
 

@@ -1,11 +1,11 @@
-import express, { Request, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import FormData from 'form-data';
 import axios from 'axios';
 import fs from 'fs';
 import { requireAuth, requireRole } from '../middleware/authMiddleware';
 
-const router = express.Router();
+const router = Router();
 
 // Configure multer for file uploads
 const upload = multer({

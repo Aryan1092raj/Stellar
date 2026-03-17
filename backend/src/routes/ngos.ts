@@ -84,4 +84,4 @@ router.get('/', (_req: Request, res: Response) => {
   });
 });
 
-export const ngosRouter = router;
+export default router;

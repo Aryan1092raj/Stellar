@@ -13,13 +13,13 @@ impl TokenManager {
         env.storage().instance().set(&Symbol::new(&env, "init"), &true);
     }
 
-    pub fn deposit(env: Env, from: Address, amount: i128) {
+    pub fn deposit(_env: Env, from: Address, amount: i128) {
         from.require_auth();
         if amount <= 0 { panic!("invalid-amount"); }
         // TODO: integrate with native XLM or token interface
     }
 
-    pub fn withdraw(env: Env, to: Address, amount: i128) {
+    pub fn withdraw(_env: Env, to: Address, amount: i128) {
         // TODO: implement
         let _ = (to, amount);
     }

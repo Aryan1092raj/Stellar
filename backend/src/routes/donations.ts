@@ -140,4 +140,4 @@ router.get(
   }
 );
 
-export const donationsRouter = router;
+export default router;

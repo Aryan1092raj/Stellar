@@ -21,7 +21,7 @@ export default function EvidenceUpload() {
       form.append("file", file);
 
       const res = await authFetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/evidence/upload`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/evidence/upload`,
         {
           method: "POST",
           body: form,

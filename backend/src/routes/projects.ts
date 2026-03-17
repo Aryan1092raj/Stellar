@@ -74,4 +74,4 @@ router.get('/', (_req: Request, res: Response) => {
   });
 });
 
-export const projectsRouter = router;
+export default router;
