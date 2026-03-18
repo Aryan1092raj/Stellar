@@ -3,7 +3,9 @@ import { useEffect, useState } from 'react';
 import { 
   connectWallet, 
   disconnectWallet, 
-  detectWallets, 
+  hasFreighter,
+  hasXBull,
+  hasAlbedo,
   loadWalletInfo, 
   saveWalletInfo,
   getWalletBalance,
@@ -30,7 +32,15 @@ export default function WalletStatus() {
       setConnected(true);
       loadBalance(saved.publicKey);
     }
-    setAvailableWallets(detectWallets());
+
+    (async () => {
+      const freighterAvailable = await hasFreighter();
+      const wallets: WalletType[] = [];
+      if (freighterAvailable) wallets.push('freighter');
+      if (hasXBull()) wallets.push('xbull');
+      if (hasAlbedo()) wallets.push('albedo');
+      setAvailableWallets(wallets);
+    })();
   }, []);
 
   // Refresh balance periodically
