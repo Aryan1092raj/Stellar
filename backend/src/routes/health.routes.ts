@@ -1,12 +1,13 @@
 import { Router } from 'express';
-import { healthController } from '../controllers/health.controller.js';
 
 const router = Router();
 
-router.get('/health', (req, res) => {
-    res.status(200).json({ status: 'ok' });
+router.get('/', async (req, res) => {
+    res.json({ 
+        status: 'ok', 
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+    });
 });
-
-// Add other routes from the original files here
 
 export default router;

@@ -1,4 +1,10 @@
 import { StellarWalletsKit, WalletNetwork, FreighterModule } from '@creit.tech/stellar-wallets-kit';
+import {
+  isConnected,
+  requestAccess,
+  getAddress,
+  getNetwork,
+} from '@stellar/freighter-api';
 
 export type WalletType = 'freighter' | 'albedo' | 'xbull' | 'lobstr';
 
@@ -15,8 +21,13 @@ export const NETWORK_PASSPHRASE = STELLAR_NETWORK === 'TESTNET'
   : 'Public Global Stellar Network ; September 2015';
 
 // Wallet detection
-export function hasFreighter() {
-  return typeof window !== 'undefined' && !!window.freighterApi;
+export async function hasFreighter(): Promise<boolean> {
+  try {
+    const result = await isConnected();
+    return result.isConnected;
+  } catch {
+    return false;
+  }
 }
 
 export function hasXBull() {
@@ -27,9 +38,9 @@ export function hasAlbedo() {
   return typeof window !== 'undefined' && !!window.albedo;
 }
 
-export function detectWallets() {
+export async function detectWallets() {
   const wallets: WalletType[] = [];
-  if (hasFreighter()) wallets.push('freighter');
+  if (await hasFreighter()) wallets.push('freighter');
   if (hasXBull()) wallets.push('xbull');
   if (hasAlbedo()) wallets.push('albedo');
   return wallets;
@@ -37,34 +48,31 @@ export function detectWallets() {
 
 // Freighter connection
 export async function connectFreighter(): Promise<WalletInfo> {
-  if (!hasFreighter()) {
-    throw new Error('Freighter wallet not installed. Please install from https://www.freighter.app/');
-  }
-  
   try {
-    // Request access
-    await window.freighterApi!.requestAccess();
-    
-    // Get user info
-    const info = await window.freighterApi!.getUserInfo();
-    
-    if (!info || !info.publicKey) {
-      throw new Error('Failed to get wallet information');
+    const connected = await isConnected();
+    if (!connected.isConnected) {
+      throw new Error('Freighter wallet not installed. Please install from https://www.freighter.app/');
     }
-    
-    // Get network
-    const network = await window.freighterApi!.getNetwork();
+
+    const accessResult = await requestAccess();
+    if (accessResult.error) {
+      throw new Error('User declined access');
+    }
+
+    const keyResult = await getAddress();
+    if (!keyResult.address) {
+      throw new Error('Failed to get public key');
+    }
+
+    const networkResult = await getNetwork();
     
     return {
-      publicKey: info.publicKey,
+      publicKey: keyResult.address,
       type: 'freighter',
-      network: network || STELLAR_NETWORK,
+      network: networkResult.network || STELLAR_NETWORK,
     };
   } catch (error: any) {
-    if (error.message?.includes('User declined')) {
-      throw new Error('Wallet connection rejected by user');
-    }
-    throw new Error(`Failed to connect Freighter: ${error.message || 'Unknown error'}`);
+    throw new Error(`Failed to connect Freighter: ${error.message}`);
   }
 }
 
@@ -125,7 +133,7 @@ export async function connectWallet(type: WalletType): Promise<WalletInfo> {
 
 // Check if wallet is connected
 export async function isFreighterConnected() {
-  if (!hasFreighter()) return false;
+  if (!(await hasFreighter())) return false;
   try {
     return await window.freighterApi!.isConnected();
   } catch {
@@ -138,7 +146,7 @@ export async function signXdr(xdr: string, type: WalletType = 'freighter'): Prom
   try {
     switch (type) {
       case 'freighter':
-        if (!hasFreighter()) throw new Error('Freighter not found');
+        if (!(await hasFreighter())) throw new Error('Freighter not found');
         const freighterResult = await window.freighterApi!.signTransaction(xdr, {
           networkPassphrase: NETWORK_PASSPHRASE,
         });

@@ -117,6 +117,45 @@ router.put(
 );
 
 /**
+ * ✅ UPDATE EVIDENCE URL (NGO ONLY)
+ */
+const EvidenceSchema = z.object({
+  evidence_url: z.string().url(),
+});
+
+router.put(
+  '/:id/evidence',
+  requireAuth,
+  requireRole('ngo'),
+  (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    const parsed = EvidenceSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ errors: parsed.error.issues });
+    }
+
+    (async () => {
+      if (useMock) {
+        const idx = mockStore.findIndex((d) => d.id === id);
+        if (idx === -1) return res.status(404).json({ error: 'not-found' });
+        mockStore[idx].evidence_url = parsed.data.evidence_url;
+        return res.json(mockStore[idx]);
+      }
+
+      const updated = await prisma.donation.update({
+        where: { id },
+        data: { evidence_url: parsed.data.evidence_url },
+      });
+
+      res.json(updated);
+    })().catch((e) => {
+      console.error(e);
+      res.status(500).json({ error: 'failed-update' });
+    });
+  }
+);
+
+/**
  * ✅ LIST DONATIONS (AUTHENTICATED USERS ONLY)
  */
 router.get(

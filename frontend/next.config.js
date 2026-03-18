@@ -2,7 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   async rewrites() {
-    const backend = process.env.BACKEND_URL || 'http://localhost:4000';
+    const backend = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
     return [
       {
         source: '/api/:path*',

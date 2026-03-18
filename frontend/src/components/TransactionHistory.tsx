@@ -67,7 +67,9 @@ export default function TransactionHistory() {
       const data = await response.json();
       
       // Also fetch our donation records
-      const donationsRes = await fetch('/api/donations');
+      const donationsRes = await fetch('/api/donations', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+      });
       const donations = donationsRes.ok ? await donationsRes.json() : [];
 
       // Transform and combine data

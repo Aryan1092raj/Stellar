@@ -3,7 +3,9 @@ import { useEffect, useState } from 'react';
 import { 
   connectWallet, 
   disconnectWallet, 
-  detectWallets, 
+  hasFreighter,
+  hasXBull,
+  hasAlbedo,
   loadWalletInfo, 
   saveWalletInfo,
   getWalletBalance,
@@ -30,7 +32,15 @@ export default function WalletStatus() {
       setConnected(true);
       loadBalance(saved.publicKey);
     }
-    setAvailableWallets(detectWallets());
+
+    (async () => {
+      const freighterAvailable = await hasFreighter();
+      const wallets: WalletType[] = [];
+      if (freighterAvailable) wallets.push('freighter');
+      if (hasXBull()) wallets.push('xbull');
+      if (hasAlbedo()) wallets.push('albedo');
+      setAvailableWallets(wallets);
+    })();
   }, []);
 
   // Refresh balance periodically
@@ -186,7 +196,7 @@ export default function WalletStatus() {
             <button
               className="wallet-option"
               onClick={() => handleConnect('freighter')}
-              disabled={connecting || !availableWallets.includes('freighter')}
+              disabled={connecting}
             >
               <div className="wallet-option-icon">🚀</div>
               <div className="wallet-option-content">
@@ -194,7 +204,7 @@ export default function WalletStatus() {
                 <div className="wallet-option-desc">
                   {availableWallets.includes('freighter') 
                     ? 'Most popular Stellar wallet' 
-                    : 'Not installed'}
+                    : 'Click to connect'}
                 </div>
               </div>
               {availableWallets.includes('freighter') && (

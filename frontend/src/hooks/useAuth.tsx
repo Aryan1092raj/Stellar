@@ -36,11 +36,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, role: 'donor' | 'ngo') => {
-    // In a real app, this would call your backend auth endpoint
-    const mockUser = { email, role, token: 'mock-jwt-token-' + Date.now() };
-    setUser(mockUser);
+    // Read the real JWT set by the OTP flow in lib/auth.ts
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') || '' : '';
+    const realUser = { email, role, token };
+    setUser(realUser);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('geoledger-auth', JSON.stringify(mockUser));
+      localStorage.setItem('geoledger-auth', JSON.stringify(realUser));
     }
   };
 
