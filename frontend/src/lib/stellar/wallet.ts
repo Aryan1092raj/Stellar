@@ -16,7 +16,8 @@ export const NETWORK_PASSPHRASE = STELLAR_NETWORK === 'TESTNET'
 
 // Wallet detection
 export function hasFreighter() {
-  return typeof window !== 'undefined' && !!window.freighterApi;
+  return typeof window !== 'undefined' && 
+    (!!window.freighterApi || !!(window as any).freighter);
 }
 
 export function hasXBull() {
@@ -37,23 +38,22 @@ export function detectWallets() {
 
 // Freighter connection
 export async function connectFreighter(): Promise<WalletInfo> {
-  if (!hasFreighter()) {
-    throw new Error('Freighter wallet not installed. Please install from https://www.freighter.app/');
+  const api = window.freighterApi || (window as any).freighter;
+  
+  if (!api) {
+    throw new Error('Freighter wallet not installed.');
   }
   
   try {
-    // Request access
-    await window.freighterApi!.requestAccess();
+    await api.requestAccess();
     
-    // Get user info
-    const info = await window.freighterApi!.getUserInfo();
+    const info = await api.getUserInfo();
     
     if (!info || !info.publicKey) {
       throw new Error('Failed to get wallet information');
     }
     
-    // Get network
-    const network = await window.freighterApi!.getNetwork();
+    const network = await api.getNetwork();
     
     return {
       publicKey: info.publicKey,
@@ -64,7 +64,7 @@ export async function connectFreighter(): Promise<WalletInfo> {
     if (error.message?.includes('User declined')) {
       throw new Error('Wallet connection rejected by user');
     }
-    throw new Error(`Failed to connect Freighter: ${error.message || 'Unknown error'}`);
+    throw new Error(`Failed to connect Freighter: ${error.message}`);
   }
 }
 

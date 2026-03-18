@@ -186,7 +186,7 @@ export default function WalletStatus() {
             <button
               className="wallet-option"
               onClick={() => handleConnect('freighter')}
-              disabled={connecting || !availableWallets.includes('freighter')}
+              disabled={connecting}
             >
               <div className="wallet-option-icon">🚀</div>
               <div className="wallet-option-content">
@@ -194,7 +194,7 @@ export default function WalletStatus() {
                 <div className="wallet-option-desc">
                   {availableWallets.includes('freighter') 
                     ? 'Most popular Stellar wallet' 
-                    : 'Not installed'}
+                    : 'Click to connect'}
                 </div>
               </div>
               {availableWallets.includes('freighter') && (
