@@ -16,8 +16,8 @@ export const NETWORK_PASSPHRASE = STELLAR_NETWORK === 'TESTNET'
 
 // Wallet detection
 export function hasFreighter() {
-  return typeof window !== 'undefined' && 
-    (!!window.freighterApi || !!(window as any).freighter);
+  if (typeof window === 'undefined') return false;
+  return !!(window as any).freighterApi || !!(window as any).freighter;
 }
 
 export function hasXBull() {
@@ -38,10 +38,10 @@ export function detectWallets() {
 
 // Freighter connection
 export async function connectFreighter(): Promise<WalletInfo> {
-  const api = window.freighterApi || (window as any).freighter;
+  const api = (window as any).freighterApi || (window as any).freighter;
   
   if (!api) {
-    throw new Error('Freighter wallet not installed.');
+    throw new Error('Freighter wallet not installed. Please install from https://www.freighter.app/');
   }
   
   try {
