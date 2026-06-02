@@ -104,8 +104,8 @@ Key backend domains:
 
 Base API prefix: `/api` (except root `GET /health`)
 
-- `GET /health` → backend process + DB connectivity
-- `GET /api/health` → API router uptime/status payload
+- `GET /health` → use for infra/liveness checks (includes DB connectivity probe)
+- `GET /api/health` → use for API-layer status checks (router uptime/timestamp payload)
 - `POST /api/auth/google`
 - `GET /api/donations`
 - `POST /api/donations`
@@ -153,7 +153,7 @@ npm run lint
 
 ## Notes
 
-- Demo wallet endpoints are retired in current backend routing.
+- Legacy demo wallet API endpoints are retired; current wallet flow is handled through real wallet integration in the frontend donation/auth paths.
 - The root-level `start.sh` script exists for local startup orchestration.
 - Additional docs: `WORKFLOW.md`, `DOCUMENTATION.md`, `DEPLOY.md`, `QUICKREF.txt`.
 
