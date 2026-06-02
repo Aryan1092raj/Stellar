@@ -1,4 +1,4 @@
-# Stellar (GeoLedger)
+# GeoLedger (Stellar Donation Platform)
 
 A full-stack blockchain donation platform built on **Stellar/Soroban** for transparent charitable giving.
 
@@ -52,7 +52,7 @@ Under `/contracts`:
 - Node.js 20+
 - npm
 - PostgreSQL (optional; without `DATABASE_URL`, backend uses mock mode for data paths that support it)
-- Rust + Stellar CLI (`stellar`, includes Soroban commands) for contract development/deployment
+- Rust + Stellar CLI (command: `stellar`; sometimes referenced as `stellar-cli` / `soroban-cli`) for contract development/deployment
 - Freighter wallet extension (for wallet-based flows)
 
 ## Quick start (local)
@@ -99,19 +99,19 @@ Key backend domains:
 
 ## Useful API routes
 
-Base API prefix: `/api`
+Base API prefix: `/api` (except root `GET /health`)
 
-- `GET /health` (root health + DB connectivity check)
-- `GET /api/health` (API router health payload)
+- `GET /health` → backend process + DB connectivity
+- `GET /api/health` → API router uptime/status payload
 - `POST /api/auth/google`
 - `GET /api/donations`
 - `POST /api/donations`
 - `POST /api/evidence/prepare`
 - `POST /api/evidence/confirm`
-- `GET /api/evidence/health`
+- `GET /api/evidence/health` (evidence/IPFS integration status)
 - `POST /api/chat/message`
 - `GET /api/chat/suggestions`
-- `GET /api/chat/health`
+- `GET /api/chat/health` (Gemini integration status)
 
 ## Contracts deployment
 
