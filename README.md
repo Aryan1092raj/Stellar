@@ -51,8 +51,10 @@ Under `/contracts`:
 
 - Node.js 20+
 - npm
-- PostgreSQL (optional; without `DATABASE_URL`, backend falls back to in-memory mock storage for donation/project/NGO API flows)
-- Rust + Stellar CLI (command: `stellar`; sometimes referenced as `stellar-cli` / `soroban-cli`) for contract development/deployment
+- PostgreSQL (optional)
+- Without `DATABASE_URL`, backend falls back to in-memory mock storage for donation/project/NGO API flows
+- Rust + Stellar CLI (`stellar` command) for contract development/deployment
+- You may also see older references to `stellar-cli` or `soroban-cli`
 - Freighter wallet extension (for wallet-based flows)
 
 ## Quick start (local)
