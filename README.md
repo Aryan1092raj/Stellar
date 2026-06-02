@@ -1,58 +1,162 @@
-# GeoLedger
+# GeoLedger (Stellar Donation Platform)
 
-Transparent charitable donations on the Stellar blockchain. Donors lock funds in
-Soroban smart contract escrow -- NGOs release funds only after uploading verified,
-geo-tagged impact evidence to IPFS.
+A full-stack blockchain donation platform built on **Stellar/Soroban** for transparent charitable giving.
 
-**Live testnet contracts:**
-| Contract | ID |
-|---|---|
-| Donation Registry | CC2ZBCQND2XPH54ELEJTK2GYBML2MACHR74TKZXD2VUVJV6ESSNYQD44 |
-| Impact Escrow | CCMDVSI4VEX4RGU6QWTFLNKKCRSRFXTLBMMRMN5VB7XWTMGR5UUZEAID |
-| NGO Verification | CAB4Z7W4RSKUXZLAY2SQCQJOM7CH4ZJBAKPI33B6RFMS53TDMNQ2ORFQ |
+Donations are recorded with geolocation metadata, NGOs submit impact evidence, and transaction flow is backed by smart contracts and a web application stack.
 
-## Stack
-- **Contracts** - Rust + Stellar Soroban (6 contracts)
-- **Backend** - Node.js + Express + TypeScript + Prisma + PostgreSQL
-- **Frontend** - Next.js 14 + TypeScript + Leaflet
-- **Storage** - IPFS via Pinata
-- **Auth** - OTP email (Resend) + Google OAuth (Firebase)
-- **Wallet** - Freighter (Stellar)
+## What’s in this repo
 
-## Local setup
-### Prerequisites
+- **Smart contracts (Soroban/Rust)** for donation flow, NGO verification, escrow, token handling, NFTs, and evidence
+- **Backend API** (Express + TypeScript + Prisma)
+- **Frontend app** (Next.js 14 + TypeScript + React)
+- **Firebase functions** workspace (Genkit/Firebase tooling)
+- Deployment and utility scripts
+
+## Architecture
+
+```text
+Frontend (Next.js)
+   ↓ HTTP
+Backend API (Express)
+   ├─ PostgreSQL (via Prisma) OR mock mode (no DATABASE_URL)
+   ├─ Stellar/Soroban integration
+   ├─ IPFS upload + retrieval helpers
+   ├─ Auth (JWT + Google/Firebase + OTP flow)
+   └─ AI assistant route (Gemini)
+```
+
+## Repository structure
+
+```text
+/backend        Express API + Prisma schema
+/frontend       Next.js UI
+/contracts      Soroban smart contracts
+/functions      Firebase functions workspace
+/infra          Docker compose and infra helpers
+/scripts        Contract deployment scripts
+```
+
+## Smart contracts
+
+Under `/contracts`:
+
+- `donation_registry`
+- `ngo_verification`
+- `impact_escrow`
+- `token_manager`
+- `nft_minting`
+- `evidence`
+
+## Prerequisites
+
 - Node.js 20+
-- Rust + `stellar-cli`
-- PostgreSQL
-- Freighter browser extension
+- npm
+- PostgreSQL (optional)
+- Without `DATABASE_URL`, backend falls back to in-memory mock storage for donation/project/NGO API flows
+- Rust + Stellar CLI (`stellar` command) for contract development/deployment
+- You may also see older references to `stellar-cli` or `soroban-cli`
+- Freighter wallet extension (for wallet-based flows)
 
-### Backend
+## Quick start (local)
+
+### 1) Backend
+
 ```bash
 cd backend
-cp .env.example .env   # fill in values
+cp .env.example .env
 npm install
+
+# Optional if using PostgreSQL
 npx prisma migrate dev
+
 npm run dev
+```
+
+Backend default address: `http://127.0.0.1:4000`
+
+### 2) Frontend
+
+```bash
+cd frontend
+cp .env.example .env.local
+npm install
+npm run dev
+```
+
+Frontend default address: `http://localhost:3000`
+
+## Environment configuration
+
+Use:
+
+- `backend/.env.example`
+- `frontend/.env.example`
+
+Key backend domains:
+
+- Database: `DATABASE_URL`
+- Auth: `JWT_SECRET`, Firebase service account config
+- Blockchain: Soroban + contract IDs
+- Evidence/IPFS: Pinata/IPFS keys
+- AI: `GEMINI_API_KEY`
+
+## Useful API routes
+
+Base API prefix: `/api` (except root `GET /health`)
+
+- `GET /health` → use for infra/liveness checks (includes DB connectivity probe)
+- `GET /api/health` → use for API-layer status checks (router uptime/timestamp payload)
+- `POST /api/auth/google`
+- `GET /api/donations`
+- `POST /api/donations`
+- `POST /api/evidence/prepare`
+- `POST /api/evidence/confirm`
+- `GET /api/evidence/health` (evidence/IPFS integration status)
+- `POST /api/chat/message`
+- `GET /api/chat/suggestions`
+- `GET /api/chat/health` (Gemini integration status)
+
+## Contracts deployment
+
+From repo root, see deployment helpers in `/scripts`, including:
+
+- `deploy_contracts.sh`
+- `deploy_phase1_testnet.sh`
+
+## Development commands
+
+### Backend
+
+```bash
+cd backend
+npm run dev
+npm run build
+npm test
 ```
 
 ### Frontend
+
 ```bash
 cd frontend
-cp .env.example .env.local   # fill in values
-npm install
 npm run dev
+npm run build
+npm test
 ```
 
-### Contracts (testnet)
+### Firebase functions
+
 ```bash
-cd contracts
-stellar keys generate admin --network testnet
-stellar keys fund admin --network testnet
-./scripts/deploy_phase1_testnet.sh
+cd functions
+npm run build
+npm run lint
 ```
 
-## Environment variables
-See `backend/.env.example` and `frontend/.env.example` for all required variables.
+## Notes
+
+- Legacy demo wallet API endpoints are retired; current wallet flow is handled through real wallet integration in the frontend donation/auth paths.
+- The root-level `start.sh` script exists for local startup orchestration.
+- Additional docs: `WORKFLOW.md`, `DOCUMENTATION.md`, `DEPLOY.md`, `QUICKREF.txt`.
 
 ## License
+
 MIT
