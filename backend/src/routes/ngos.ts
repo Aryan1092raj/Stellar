@@ -1,11 +1,19 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db';
-import { DEMO_NGOS } from '../demo-data';
 import { requireAuth, requireRole } from '../middleware/authMiddleware';
 
 const useMock = !process.env.DATABASE_URL;
-const mockStore: any[] = [...DEMO_NGOS]; // Pre-populate with demo data
+type NGORecord = {
+  id: number;
+  name: string;
+  wallet_address: string;
+  verification_status: string;
+  sector?: string | null;
+  created_at?: string;
+};
+
+const mockStore: NGORecord[] = [];
 
 const router = Router();
 
@@ -23,13 +31,13 @@ router.post(
   '/',
   requireAuth,
   requireRole('ngo'),
-  (req: Request, res: Response) => {
+  async (req: Request, res: Response) => {
     const parsed = NGOSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ errors: parsed.error.issues });
+      return res.status(400).json({ error: 'invalid-request' });
     }
 
-    (async () => {
+    try {
       if (useMock) {
         const created = {
           id: mockStore.length + 1,
@@ -52,11 +60,11 @@ router.post(
         },
       });
 
-      res.status(201).json(created);
-    })().catch((e) => {
-      console.error(e);
-      res.status(500).json({ error: 'failed-to-create' });
-    });
+      return res.status(201).json(created);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      return res.status(500).json({ error: message });
+    }
   }
 );
 
@@ -64,8 +72,8 @@ router.post(
  * ✅ LIST NGOs (PUBLIC)
  * Anyone can view verified/pending NGOs
  */
-router.get('/', (_req: Request, res: Response) => {
-  (async () => {
+router.get('/', async (_req: Request, res: Response) => {
+  try {
     if (useMock) {
       return res.json(mockStore.slice().sort((a, b) => b.id - a.id));
     }
@@ -77,11 +85,11 @@ router.get('/', (_req: Request, res: Response) => {
       orderBy: { created_at: 'desc' },
     });
 
-    res.json(list);
-  })().catch((e) => {
-    console.error(e);
-    res.status(500).json({ error: 'failed-to-list' });
-  });
+    return res.json(list);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return res.status(500).json({ error: message });
+  }
 });
 
 export default router;

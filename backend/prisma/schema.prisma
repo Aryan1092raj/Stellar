@@ -22,13 +22,15 @@ model Donation {
   chain_verify_tx    String?
   soroban_contract_id String?
   evidence_url       String?
+  evidence_cid       String?
+  evidence_tx        String?
   tx_confirmed       Boolean  @default(false)
   created_at         DateTime @default(now())
 }
 
 model NGO {
   id                  Int      @id @default(autoincrement())
-  name                String
+  name                String   @unique
   wallet_address      String
   verification_status String
   sector              String?
@@ -50,6 +52,9 @@ model Project {
 model User {
   id         Int      @id @default(autoincrement())
   email      String   @unique
+  name       String?
+  googleUid  String?  @unique
+  avatar     String?
   role       String
   created_at DateTime @default(now())
 }

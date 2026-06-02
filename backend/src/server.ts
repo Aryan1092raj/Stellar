@@ -1,11 +1,11 @@
 import dotenv from 'dotenv';
-import app from "./app.js";
-import "./uploads/ipfs.js";
+import app from "./app";
 
 dotenv.config();
 
-const port = process.env.PORT || 4000;
+const port = Number(process.env.PORT || 4000);
+const host = process.env.HOST || '127.0.0.1';
 
-app.listen(port, () => {
-  console.log(`Backend listening on ${port}`);
+app.listen(port, host, () => {
+  console.log(`Backend listening on ${host}:${port}`);
 });

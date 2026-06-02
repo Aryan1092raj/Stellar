@@ -4,10 +4,21 @@ import admin from 'firebase-admin';
 let db: admin.firestore.Firestore | null = null;
 
 // in-memory fallback store for verified users when Firestore is not configured
-const verifiedMemoryStore: Map<string, any> = new Map();
+type VerifiedUserData = {
+  email: string;
+  verified_at: string;
+  provider: string;
+  role: string;
+};
+
+const verifiedMemoryStore: Map<string, VerifiedUserData> = new Map();
 
 export function initFirebase() {
   if (db) return db;
+  if (admin.apps.length) {
+    db = admin.firestore();
+    return db;
+  }
   const svcJson = process.env.FIREBASE_SERVICE_ACCOUNT;
   const svcPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
   let cred: admin.ServiceAccount | undefined;
@@ -22,11 +33,23 @@ export function initFirebase() {
   return db;
 }
 
+export function getFirebaseAuth() {
+  if (!admin.apps.length) {
+    initFirebase();
+  }
+
+  if (!admin.apps.length) {
+    throw new Error('Firebase admin credentials are not configured');
+  }
+
+  return admin.auth();
+}
+
 export function getFirestore() {
   return db || initFirebase();
 }
 
-export async function saveVerifiedUser(email: string, data: any) {
+export async function saveVerifiedUser(email: string, data: VerifiedUserData) {
   const fdb = getFirestore();
   if (fdb) {
     await fdb.collection('verified_users').doc(email).set(data);
@@ -43,4 +66,3 @@ export async function listVerifiedUsers() {
   }
   return Array.from(verifiedMemoryStore.values());
 }
-

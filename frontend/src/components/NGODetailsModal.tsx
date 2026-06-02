@@ -6,7 +6,7 @@ interface NGO {
   id: number;
   name: string;
   wallet_address: string;
-  sector?: string;
+  sector?: string | null;
   verification_status: string;
 }
 

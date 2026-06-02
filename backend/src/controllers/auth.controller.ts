@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { AuthRequest } from '../middleware/auth.js';
+import { AuthRequest } from '../middleware/auth';
 
 export const authController = {
   /**
@@ -8,19 +8,10 @@ export const authController = {
    */
   register: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { email, password, role } = req.body;
-
-      // TODO: Implement user registration
-      // TODO: Hash password
-      // TODO: Store in database
-      // TODO: Send verification email
-
-      res.status(501).json({
-        success: false,
-        error: { message: 'Registration not yet implemented' },
-      });
-    } catch (error) {
-      next(error);
+      res.status(410).json({ error: 'Password registration is retired. Use /api/otp/send and /api/otp/verify instead.' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      res.status(500).json({ error: message });
     }
   },
 
@@ -30,18 +21,10 @@ export const authController = {
    */
   login: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { email, password } = req.body;
-
-      // TODO: Verify credentials
-      // TODO: Generate JWT token
-      // TODO: Return user data and token
-
-      res.status(501).json({
-        success: false,
-        error: { message: 'Login not yet implemented' },
-      });
-    } catch (error) {
-      next(error);
+      res.status(410).json({ error: 'Password login is retired. Use /api/otp/send and /api/otp/verify instead.' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      res.status(500).json({ error: message });
     }
   },
 
@@ -57,8 +40,9 @@ export const authController = {
         success: true,
         data: { message: 'Logged out successfully' },
       });
-    } catch (error) {
-      next(error);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      res.status(500).json({ error: message });
     }
   },
 
@@ -71,10 +55,7 @@ export const authController = {
       const user = req.user;
 
       if (!user) {
-        return res.status(401).json({
-          success: false,
-          error: { message: 'Not authenticated' },
-        });
+        return res.status(401).json({ error: 'Not authenticated' });
       }
 
       // TODO: Fetch full user data from database
@@ -83,8 +64,9 @@ export const authController = {
         success: true,
         data: { user },
       });
-    } catch (error) {
-      next(error);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      res.status(500).json({ error: message });
     }
   },
 
@@ -94,18 +76,10 @@ export const authController = {
    */
   requestOTP: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { email } = req.body;
-
-      // TODO: Generate OTP
-      // TODO: Send OTP via email
-      // TODO: Store OTP with expiry
-
-      res.status(501).json({
-        success: false,
-        error: { message: 'OTP not yet implemented' },
-      });
-    } catch (error) {
-      next(error);
+      res.status(410).json({ error: 'This OTP endpoint is retired. Use /api/otp/send instead.' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      res.status(500).json({ error: message });
     }
   },
 
@@ -115,18 +89,10 @@ export const authController = {
    */
   verifyOTP: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { email, otp } = req.body;
-
-      // TODO: Verify OTP
-      // TODO: Generate JWT token
-      // TODO: Return user data and token
-
-      res.status(501).json({
-        success: false,
-        error: { message: 'OTP verification not yet implemented' },
-      });
-    } catch (error) {
-      next(error);
+      res.status(410).json({ error: 'This OTP endpoint is retired. Use /api/otp/verify instead.' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      res.status(500).json({ error: message });
     }
   },
 };

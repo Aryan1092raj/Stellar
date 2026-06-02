@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
-import { config } from '../config/env.js';
+import { config } from '../config/env';
 
 export type ChatMessage = { role: 'user' | 'assistant'; content: string };
 

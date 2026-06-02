@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { sendOtp, verifyOtp } from "../lib/auth";
+import { useGoogleAuth } from "../hooks/useGoogleAuth";
 
 type Props = {
   onClose?: () => void;
@@ -13,6 +14,7 @@ export default function AuthModal({ onClose, role = "donor" }: Props) {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const { loginWithGoogle, loading: googleLoading, error: googleError } = useGoogleAuth(role);
 
   // ✅ SEND OTP
   async function handleSendOtp() {
@@ -27,18 +29,11 @@ export default function AuthModal({ onClose, role = "donor" }: Props) {
     try {
       const res = await sendOtp(email);
 
-      if (res?.code) {
-        setMessage(`✅ Dev OTP: ${res.code}`);
-      } else if (res?.previewUrl) {
-        setMessage(`✅ Preview Email: ${res.previewUrl}`);
-      } else {
-        setMessage("✅ OTP sent to your email");
-      }
+      setMessage("OTP sent to your email");
 
       setStep("verify");
-    } catch (e: any) {
-      console.error("OTP SEND ERROR:", e);
-      setMessage(e?.message || "❌ Failed to send OTP");
+    } catch (e: unknown) {
+      setMessage(e instanceof Error ? e.message : "Failed to send OTP");
     } finally {
       setLoading(false);
     }
@@ -65,11 +60,25 @@ export default function AuthModal({ onClose, role = "donor" }: Props) {
       setTimeout(() => {
         window.location.reload();
       }, 800);
-    } catch (e: any) {
-      console.error("OTP VERIFY ERROR:", e);
-      setMessage(e?.message || "❌ Verification failed");
+    } catch (e: unknown) {
+      setMessage(e instanceof Error ? e.message : "Verification failed");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleGoogleLogin() {
+    setMessage(null);
+    try {
+      await loginWithGoogle();
+      setStep("done");
+      setMessage("Login successful");
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 800);
+    } catch (e: unknown) {
+      setMessage(e instanceof Error ? e.message : "Google login failed");
     }
   }
 
@@ -84,13 +93,17 @@ export default function AuthModal({ onClose, role = "donor" }: Props) {
         {step === "choose" && (
           <div>
             <h3>Sign in as {role === "ngo" ? "NGO" : "Donor"}</h3>
-            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              <button className="btn" onClick={() => setStep("email")} disabled={loading}>
-                Email OTP
+            <div className="auth-stack">
+              <button className="google-btn" onClick={handleGoogleLogin} disabled={loading || googleLoading}>
+                <GoogleLogo />
+                {googleLoading ? "Connecting..." : "Continue with Google"}
               </button>
-              <button className="btn" disabled>Apple (Soon)</button>
-              <button className="btn" disabled>Google (Soon)</button>
+              <div className="auth-divider">or</div>
+              <button className="btn" onClick={() => setStep("email")} disabled={loading || googleLoading}>
+                Continue with email
+              </button>
             </div>
+            {(message || googleError) && <div style={{ marginTop: 8, fontSize: 13 }}>{message || googleError}</div>}
           </div>
         )}
 
@@ -181,6 +194,43 @@ export default function AuthModal({ onClose, role = "donor" }: Props) {
           font-size: 18px;
           cursor: pointer;
         }
+        .auth-stack {
+          display: grid;
+          gap: 12px;
+          margin-top: 12px;
+        }
+        .google-btn {
+          align-items: center;
+          background: #fff;
+          border: 1px solid #dadce0;
+          border-radius: 6px;
+          color: #202124;
+          display: flex;
+          font-weight: 600;
+          gap: 10px;
+          justify-content: center;
+          min-height: 40px;
+          padding: 8px 14px;
+          width: 100%;
+        }
+        .google-btn:disabled {
+          cursor: not-allowed;
+          opacity: 0.7;
+        }
+        .auth-divider {
+          align-items: center;
+          color: #6b7280;
+          display: flex;
+          font-size: 13px;
+          gap: 10px;
+        }
+        .auth-divider::before,
+        .auth-divider::after {
+          background: #e5e7eb;
+          content: "";
+          flex: 1;
+          height: 1px;
+        }
         input {
           width: 100%;
           padding: 8px;
@@ -202,5 +252,16 @@ export default function AuthModal({ onClose, role = "donor" }: Props) {
         }
       `}</style>
     </div>
+  );
+}
+
+function GoogleLogo() {
+  return (
+    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 18 18">
+      <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z" />
+      <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.33-1.58-5.04-3.7H.94v2.33A9 9 0 0 0 9 18z" />
+      <path fill="#FBBC05" d="M3.96 10.72A5.41 5.41 0 0 1 3.68 9c0-.6.1-1.18.28-1.72V4.95H.94A9 9 0 0 0 0 9c0 1.45.34 2.82.94 4.05l3.02-2.33z" />
+      <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.46 3.44 1.35l2.58-2.58A8.65 8.65 0 0 0 9 0 9 9 0 0 0 .94 4.95l3.02 2.33C4.67 5.16 6.66 3.58 9 3.58z" />
+    </svg>
   );
 }

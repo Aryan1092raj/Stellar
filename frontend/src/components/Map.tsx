@@ -1,7 +1,7 @@
 'use client';
-// @ts-ignore temporary loose typing for react-leaflet until proper types configured
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { useEffect, useState } from 'react';
+import type { LeafletMouseEvent } from 'leaflet';
 import { listDonations, Donation } from '../lib/api/client';
 import 'leaflet/dist/leaflet.css';
 import { useMapEvents } from 'react-leaflet';
@@ -11,7 +11,7 @@ export default function Map({ onSelect }: { onSelect?: (latlng: { lat: number; l
   
   function ClickCapture() {
     useMapEvents({
-      click(e) {
+      click(e: LeafletMouseEvent) {
         if (onSelect) onSelect({ lat: e.latlng.lat, lng: e.latlng.lng });
       },
     });
@@ -40,9 +40,7 @@ export default function Map({ onSelect }: { onSelect?: (latlng: { lat: number; l
   }, []);
   
   return (
-    // @ts-ignore center prop provided at runtime; types mismatch in our env
     <MapContainer center={[20, 0]} zoom={2} style={{ height: '100%', width: '100%' }} zoomControl={true}>
-      {/* @ts-ignore */}
       <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
       <MapUpdater />
       <ClickCapture />

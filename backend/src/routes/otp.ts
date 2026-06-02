@@ -1,7 +1,8 @@
 import { Router } from 'express';
-import { sendEmail } from '../utils/email';
+import { sendOtpEmail } from '../services/email';
 import { storeOtp, getOtp, deleteOtp, incrementSendCount } from '../utils/otpStore';
 import { saveVerifiedUser } from '../utils/firebase';
+import { config } from '../config/env';
 import jwt from 'jsonwebtoken';
 
 const router = Router();
@@ -26,16 +27,11 @@ router.post('/send', async (req, res) => {
   if (!allowed) return res.status(429).json({ error: 'rate-limited', count });
   await storeOtp(email, code, ttl);
   try {
-    if (process.env.DISABLE_EMAILS === '1') {
-      // for local dev, return code in response
-      return res.json({ ok: true, code });
-    }
-    const result = await sendEmail(email, 'Your GeoLedger OTP', `Your verification code is ${code}`);
-    // if using Ethereal or test account, send back preview URL so developer can open the message
-    return res.json({ ok: true, previewUrl: result.previewUrl });
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: 'failed-send' });
+    await sendOtpEmail(email, code);
+    return res.json({ ok: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return res.status(500).json({ error: message });
   }
 });
 
@@ -52,14 +48,18 @@ router.post('/verify', async (req, res) => {
     if (entry.code !== String(code)) return res.status(400).json({ error: 'invalid' });
     await deleteOtp(email);
     // Persist verified user to Firestore (or memory) and issue JWT
-    try {
-      const userRecord = { email, verified_at: new Date().toISOString(), provider: req.body.provider || 'email', role: req.body.role || 'donor' };
-      await saveVerifiedUser(email, userRecord);
-      // issue JWT if JWT_SECRET provided
-      const token = process.env.JWT_SECRET ? jwt.sign({ email, role: userRecord.role }, process.env.JWT_SECRET!, { expiresIn: '7d' }) : null;
-      return res.json({ ok: true, token });
-    } catch (e) { console.error('save failed', e); return res.status(500).json({ error: 'failed-save' }); }
-  } catch (e) { console.error(e); return res.status(500).json({ error: 'failed' }); }
+    const userRecord = { email, verified_at: new Date().toISOString(), provider: req.body.provider || 'email', role: req.body.role || 'donor' };
+    await saveVerifiedUser(email, userRecord);
+    const token = jwt.sign(
+      { email, role: userRecord.role },
+      config.JWT_SECRET,
+      { expiresIn: config.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'] }
+    );
+    return res.json({ ok: true, token });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return res.status(500).json({ error: message });
+  }
 });
 
 export default router;

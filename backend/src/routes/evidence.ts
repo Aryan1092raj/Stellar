@@ -1,21 +1,22 @@
-import { Router, Request, Response } from 'express';
+import { NextFunction, Request, Response, Router } from 'express';
 import multer from 'multer';
-import FormData from 'form-data';
-import axios from 'axios';
 import fs from 'fs';
+import { prisma } from '../db';
 import { requireAuth, requireRole } from '../middleware/authMiddleware';
+import { requireVerifiedNGO, VerifiedNGORequest } from '../middleware/verifyNGO';
+import { buildEvidenceTx, verifyTxOnChain } from '../lib/stellar';
+import { checkIPFSHealth, toIPFSUrl, uploadFileToIPFS } from '../services/ipfs.service';
 
 const router = Router();
+const useMock = !process.env.DATABASE_URL;
 
-// Configure multer for file uploads
 const upload = multer({
-  dest: 'uploads/', // Temporary storage
+  dest: 'uploads/',
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB max file size
+    fileSize: 10 * 1024 * 1024,
   },
-  fileFilter: (req, file, cb) => {
-    // Accept images and PDFs only
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
+  fileFilter: (_req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'application/json'];
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
@@ -24,191 +25,175 @@ const upload = multer({
   },
 });
 
-// IPFS Pinning Service Configuration
-const PINATA_API_KEY = process.env.PINATA_API_KEY || '';
-const PINATA_SECRET_KEY = process.env.PINATA_SECRET_KEY || '';
-const PINATA_BASE_URL = 'https://api.pinata.cloud';
-
-/**
- * Upload file to IPFS via Pinata
- * @param filePath - Local file path
- * @param originalName - Original filename
- * @returns IPFS CID
- */
-async function uploadToPinata(filePath: string, originalName: string): Promise<string> {
-  const url = `${PINATA_BASE_URL}/pinning/pinFileToIPFS`;
-
-  const formData = new FormData();
-  formData.append('file', fs.createReadStream(filePath));
-
-  const metadata = JSON.stringify({
-    name: originalName,
-    keyvalues: {
-      uploadedAt: new Date().toISOString(),
-      type: 'evidence',
-    },
-  });
-  formData.append('pinataMetadata', metadata);
-
-  const options = JSON.stringify({
-    cidVersion: 1,
-  });
-  formData.append('pinataOptions', options);
-
-  try {
-    const response = await axios.post(url, formData, {
-      maxBodyLength: Infinity,
-      headers: {
-        'Content-Type': `multipart/form-data; boundary=${formData.getBoundary()}`,
-        pinata_api_key: PINATA_API_KEY,
-        pinata_secret_api_key: PINATA_SECRET_KEY,
-      },
-    });
-
-    return response.data.IpfsHash;
-  } catch (error: any) {
-    console.error('Pinata upload error:', error.response?.data || error.message);
-    throw new Error('Failed to upload to IPFS via Pinata');
+function cleanupTempFile(filePath?: string) {
+  if (filePath) {
+    fs.rm(filePath, { force: true }, () => undefined);
   }
 }
 
-/**
- * POST /api/evidence/upload
- * Upload file to IPFS and return CID
- * ✅ NGO ONLY
- */
+function parseDonationId(req: Request) {
+  const value = req.body?.donation_id || req.body?.donationId;
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+async function requireVerifiedNGOAfterUpload(req: Request, res: Response, next: NextFunction) {
+  await requireVerifiedNGO(req, res, (err?: unknown) => {
+    if (err) return next(err);
+    return next();
+  });
+
+  if (res.headersSent) {
+    cleanupTempFile(req.file?.path);
+  }
+}
+
 router.post(
-  '/upload',
+  '/prepare',
   requireAuth,
   requireRole('ngo'),
   upload.single('file'),
-  async (req: Request, res: Response) => {
+  requireVerifiedNGOAfterUpload,
+  async (req: VerifiedNGORequest, res: Response) => {
     try {
-      if (!PINATA_API_KEY || !PINATA_SECRET_KEY) {
-        return res.status(500).json({
-          success: false,
-          error: 'Pinata not configured. Set PINATA_API_KEY and PINATA_SECRET_KEY',
-        });
-      }
-
       if (!req.file) {
-        return res.status(400).json({
-          success: false,
-          error: 'No file uploaded',
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
+
+      const donationId = parseDonationId(req);
+      if (!donationId) {
+        cleanupTempFile(req.file.path);
+        return res.status(400).json({ error: 'donation_id is required' });
+      }
+
+      if (useMock) {
+        const ipfsCid = await uploadFileToIPFS(req.file.path, req.file.originalname);
+        cleanupTempFile(req.file.path);
+        return res.status(200).json({
+          ipfsCid,
+          cid: ipfsCid,
+          xdr: null,
+          ipfsUrl: toIPFSUrl(ipfsCid),
+          timestamp: new Date().toISOString(),
         });
       }
 
-      const { path: filePath, originalname, mimetype, size } = req.file;
+      const donation = await prisma.donation.findUnique({ where: { id: donationId } });
+      if (!donation) {
+        cleanupTempFile(req.file.path);
+        return res.status(404).json({ error: 'not-found' });
+      }
+      if (req.verifiedNGOId !== donation.ngo_id) {
+        cleanupTempFile(req.file.path);
+        return res.status(403).json({ error: 'NGO mismatch for donation' });
+      }
 
-      console.log(`📤 Uploading to IPFS: ${originalname} (${size} bytes)`);
+      const ipfsCid = await uploadFileToIPFS(req.file.path, req.file.originalname);
+      cleanupTempFile(req.file.path);
 
-      const cid = await uploadToPinata(filePath, originalname);
+      const projectId = donation.project_id ?? donation.id;
+      const ngoAddress = req.verifiedNGOWallet;
+      if (!ngoAddress) return res.status(403).json({ error: 'NGO wallet missing' });
 
-      fs.unlinkSync(filePath);
-
-      console.log(`✅ Upload successful: ${cid}`);
+      const xdr = await buildEvidenceTx({ projectId, ipfsCid, ngoAddress });
+      const ipfsUrl = toIPFSUrl(ipfsCid);
 
       return res.status(200).json({
-        success: true,
-        cid,
-        filename: originalname,
-        mimetype,
-        size,
-        ipfsUrl: `https://gateway.pinata.cloud/ipfs/${cid}`,
+        ipfsCid,
+        cid: ipfsCid,
+        xdr,
+        ipfsUrl,
+        filename: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
         timestamp: new Date().toISOString(),
       });
-    } catch (error: any) {
-      console.error('❌ Upload error:', error.message);
-
-      if (req.file?.path) {
-        try {
-          fs.unlinkSync(req.file.path);
-        } catch {
-          // Ignore cleanup errors
-        }
-      }
-
-      return res.status(500).json({
-        success: false,
-        error: error.message || 'Failed to upload file',
-      });
+    } catch (err) {
+      cleanupTempFile(req.file?.path);
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      return res.status(500).json({ error: message });
     }
   }
 );
 
-/**
- * GET /api/evidence/retrieve/:cid
- * Public: Get file metadata and URL from IPFS
- */
+router.post('/confirm', requireAuth, requireRole('ngo'), requireVerifiedNGO, async (req: VerifiedNGORequest, res: Response) => {
+  try {
+    const donationId = parseDonationId(req);
+    const ipfsCid = req.body?.ipfsCid || req.body?.evidence_cid || req.body?.cid;
+    const txHash = req.body?.txHash;
+
+    if (!donationId || typeof ipfsCid !== 'string' || typeof txHash !== 'string') {
+      return res.status(400).json({ error: 'invalid-request' });
+    }
+
+    const confirmed = await verifyTxOnChain(txHash);
+    if (!confirmed) {
+      return res.status(400).json({ error: 'Transaction not confirmed on-chain' });
+    }
+
+    if (useMock) {
+      return res.json({ ok: true, txHash });
+    }
+
+    const donation = await prisma.donation.findUnique({ where: { id: donationId } });
+    if (!donation) return res.status(404).json({ error: 'not-found' });
+    if (req.verifiedNGOId !== donation.ngo_id) return res.status(403).json({ error: 'NGO mismatch for donation' });
+
+    const ipfsUrl = toIPFSUrl(ipfsCid);
+    await prisma.donation.update({
+      where: { id: donation.id },
+      data: {
+        evidence_url: ipfsUrl,
+        evidence_cid: ipfsCid,
+        evidence_tx: txHash,
+      },
+    });
+
+    return res.json({ ok: true, ipfsCid, txHash, ipfsUrl });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return res.status(500).json({ error: message });
+  }
+});
+
+router.post('/upload', requireAuth, requireRole('ngo'), (_req: Request, res: Response) => {
+  return res.status(410).json({ error: 'Evidence upload moved to /api/evidence/prepare and /api/evidence/confirm' });
+});
+
 router.get('/retrieve/:cid', async (req: Request, res: Response) => {
   try {
     const { cid } = req.params;
 
     if (!cid || cid.length < 40) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid CID format',
-      });
+      return res.status(400).json({ error: 'Invalid CID format' });
     }
 
     return res.status(200).json({
-      success: true,
       cid,
-      gateways: [
-        `https://gateway.pinata.cloud/ipfs/${cid}`,
-        `https://ipfs.io/ipfs/${cid}`,
-        `https://cloudflare-ipfs.com/ipfs/${cid}`,
-      ],
+      gateways: [toIPFSUrl(cid), `https://ipfs.io/ipfs/${cid}`, `https://cloudflare-ipfs.com/ipfs/${cid}`],
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
-    console.error('❌ Retrieve error:', error.message);
-
-    return res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to retrieve file info',
-    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return res.status(500).json({ error: message });
   }
 });
 
-/**
- * GET /api/evidence/health
- * Public: Check IPFS service health
- */
 router.get('/health', async (_req: Request, res: Response) => {
   try {
-    const isPinataConfigured = !!(PINATA_API_KEY && PINATA_SECRET_KEY);
-
-    let pinataStatus = 'not_configured';
-    if (isPinataConfigured) {
-      try {
-        await axios.get(`${PINATA_BASE_URL}/data/testAuthentication`, {
-          headers: {
-            pinata_api_key: PINATA_API_KEY,
-            pinata_secret_api_key: PINATA_SECRET_KEY,
-          },
-        });
-        pinataStatus = 'connected';
-      } catch {
-        pinataStatus = 'error';
-      }
-    }
-
+    await checkIPFSHealth();
     return res.status(200).json({
-      success: true,
       service: 'IPFS Evidence Upload',
       pinata: {
-        configured: isPinataConfigured,
-        status: pinataStatus,
+        configured: true,
+        status: 'connected',
       },
       maxFileSize: '10MB',
       allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'],
     });
-  } catch (error: any) {
-    return res.status(500).json({
-      success: false,
-      error: error.message,
-    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return res.status(500).json({ error: message });
   }
 });
 

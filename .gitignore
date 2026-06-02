@@ -1,192 +1,39 @@
-# ========================================
-# GEOLEDGER .GITIGNORE - COMPREHENSIVE SECURITY
-# ========================================
-
-# ========================================
-# 1. ENVIRONMENT VARIABLES & API KEYS
-# ========================================
-.env
-.env.*
-!.env.example
-!.env.evidence.example
-*_api_key.txt
-*_secret.txt
-credentials.json
-secrets.json
-config.local.json
-pinata_keys.json
-gemini_api_key.txt
-stellar_secret.txt
-
-# ========================================
-# 2. BLOCKCHAIN CREDENTIALS
-# ========================================
-.stellar/
-*.secret
-wallet_keys.json
-private_keys/
-keypairs.json
-.freighter/
-.xbull/
-.albedo/
-soroban-secrets/
-
-# ========================================
-# 3. NODE.JS
-# ========================================
+# Dependencies
 node_modules/
-.npm/
-.pnpm-store/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.yarn/
-.pnp.*
-lerna-debug.log*
+.pnp
+.pnp.js
 
-# ========================================
-# 4. RUST
-# ========================================
-/target/
-Cargo.lock
-**/*.rs.bk
-*.wasm
-*.wasm.map
-
-# ========================================
-# 5. NEXT.JS
-# ========================================
+# Build output
+dist/
+build/
 .next/
 out/
-.swc/
-next-env.d.ts
-build/
-dist/
+*.tsbuildinfo
 
-# ========================================
-# 6. DATABASE FILES
-# ========================================
-*.db
-*.sqlite
-*.sqlite3
-postgres_data/
-pgdata/
-mongodb_data/
-*.sql.backup
+# Rust / Soroban
+target/
+**/*.wasm
 
-# ========================================
-# 7. LOGS
-# ========================================
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-pnpm-debug.log*
-lerna-debug.log*
-combined.log
-error.log
+# Environment
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env.local
 
-# ========================================
-# 8. OS FILES
-# ========================================
+# OS
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
-desktop.ini
 
-# ========================================
-# 9. DEPLOYMENT CONFIG
-# ========================================
-render.yaml
-vercel.json
-frontend/scripts/
-
-# ========================================
-# 9. EDITOR & IDE
-# ========================================
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
-.project
-.classpath
-.settings/
-*.sublime-workspace
-*.sublime-project
 
-# ========================================
-# 10. DEPLOYMENT
-# ========================================
-.vercel/
-.netlify/
-.railway/
-.render/
-.amplify/
-.serverless/
+# Logs
+*.log
+npm-debug.log*
 
-# ========================================
-# 11. IPFS & STORAGE
-# ========================================
-.ipfs/
-ipfs_cache/
-pinata_cache/
-uploaded_evidence/
-temp_uploads/
-
-# ========================================
-# 12. TESTING
-# ========================================
+# Test
 coverage/
-.nyc_output/
-*.lcov
-.coverage
-htmlcov/
-.pytest_cache/
-.jest/
-
-# ========================================
-# 13. TEMPORARY FILES
-# ========================================
-tmp/
-temp/
-*.tmp
-*.temp
-*.bak
-*.backup
-*.swp
-*.swo
-.cache/
-
-# ========================================
-# 14. SECURITY & SENSITIVE DATA
-# ========================================
-*.pem
-*.key
-*.cert
-*.crt
-*.p12
-*.pfx
-jwt_secret.txt
-session_secret.txt
-
-# ========================================
-# 15. BUILD ARTIFACTS
-# ========================================
-*.tsbuildinfo
-.turbo/
-.nuxt/
-.output/
-.vuepress/dist
-
-# ========================================
-# 16. LOCK FILES (Optional - Keep if needed)
-# ========================================
-# Uncomment to ignore lock files
-# package-lock.json
-# yarn.lock
-# pnpm-lock.yaml

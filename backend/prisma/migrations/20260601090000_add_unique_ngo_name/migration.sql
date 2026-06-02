@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS "NGO_name_key" ON "NGO"("name");

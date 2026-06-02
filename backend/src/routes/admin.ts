@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../db';
+import { config } from '../config/env';
 
 const router = Router();
 const codes = new Map<string, string>();
@@ -23,11 +24,13 @@ router.post('/verify', async (req, res) => {
   codes.delete(key);
   try {
     if (process.env.DATABASE_URL) {
-      // @ts-ignore User model may need migration
-      await (prisma as any).user.upsert({ where: { email }, update: { role }, create: { email, role } });
+      await prisma.user.upsert({ where: { email }, update: { role }, create: { email, role } });
     }
-  } catch (e) { /* ignore persistence errors in mock mode */ }
-  const token = jwt.sign({ sub: email, role }, process.env.JWT_SECRET || 'dev', { expiresIn: '2h' });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return res.status(500).json({ error: message });
+  }
+  const token = jwt.sign({ sub: email, role }, config.JWT_SECRET, { expiresIn: '2h' });
   res.json({ token });
 });
 

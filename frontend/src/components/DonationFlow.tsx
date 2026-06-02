@@ -1,14 +1,50 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import TransactionModal from './TransactionModal';
 import { authFetch } from '../lib/auth';
-import { recordDonationOnChain } from '../lib/soroban/contracts';
+import { buildDonationTx, submitTx } from '../lib/stellar';
+import { useFreighter } from '../hooks/useFreighter';
 import { listNGOs, NGOItem } from '../lib/api/client';
 
+const INR_PRESETS = [100, 500, 1000, 5000];
+const FALLBACK_INR_PER_XLM = 38; // ~₹38/XLM as of mid-2026 fallback
+
+type SelectedNGODetail = {
+  id: number;
+  name?: string;
+  sector?: string | null;
+  wallet_address?: string;
+  project_id?: number;
+};
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : 'tx-error';
+}
+
+function impactMessage(sector?: string | null) {
+  const normalized = (sector || '').toLowerCase();
+
+  if (normalized.includes('education')) {
+    return "Rs. 500 sponsors a child's education for one month";
+  }
+  if (normalized.includes('health')) {
+    return 'Rs. 500 provides basic healthcare to 2 families';
+  }
+  if (normalized.includes('environment')) {
+    return 'Rs. 500 plants 10 trees';
+  }
+  if (normalized.includes('child')) {
+    return 'Rs. 500 feeds 5 children for a week';
+  }
+  return "Rs. 500 directly supports this NGO's mission";
+}
+
 export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { lat: number; lng: number } }) {
-  const [amount, setAmount] = useState(10);
+  const [amountInr, setAmountInr] = useState(500);
+  const [inrPerXlm, setInrPerXlm] = useState(FALLBACK_INR_PER_XLM);
   const [ngoId, setNgoId] = useState<number | null>(null);
   const [projectId, setProjectId] = useState<number | null>(null);
+  const [selectedNgo, setSelectedNgo] = useState<NGOItem | null>(null);
 
   const [status, setStatus] = useState<'idle' | 'signing' | 'submitted' | 'confirmed' | 'error'>('idle');
   const [showModal, setShowModal] = useState(false);
@@ -16,10 +52,12 @@ export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { la
   const [error, setError] = useState<string | undefined>();
 
   const [ngos, setNgos] = useState<NGOItem[]>([]);
-  const [loadingNgos, setLoadingNgos] = useState(false);
+  const { publicKey, connected, connect, sign } = useFreighter();
+  const amountXLM = useMemo(() => {
+    return amountInr > 0 ? amountInr / inrPerXlm : 0;
+  }, [amountInr, inrPerXlm]);
 
-  // ===== ✅ CORE SUBMIT FLOW (END-TO-END SAFE) =====
-  const submit = async () => {
+  const submitXlmWalletDonation = async () => {
     setShowModal(true);
     setError(undefined);
 
@@ -27,89 +65,118 @@ export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { la
       setStatus('signing');
 
       // ✅ Enforce wallet connection (real donor identity)
-      const walletPublicKey = localStorage.getItem('wallet_public_key');
-      if (!walletPublicKey) {
-        throw new Error('Wallet not connected');
-      }
+      const walletPublicKey = publicKey || (await connect());
 
-      if (!ngoId) throw new Error('Select an NGO first');
+      if (!ngoId || !selectedNgo) throw new Error('Select an NGO first');
       if (!selectedLatLng) throw new Error('Select your location on the map');
 
-      // ✅ 1. Record ON-CHAIN FIRST (SOURCE OF TRUTH)
-      const onchain = await recordDonationOnChain({
-        contractId: process.env.NEXT_PUBLIC_DONATION_REGISTRY_CONTRACT_ID || '',
-        donor: walletPublicKey,
-        amount,
-        ngo_id: ngoId,
-        donor_lat: selectedLatLng.lat,
-        donor_lon: selectedLatLng.lng,
+      // ✅ 1. Build and sign the real Soroban transaction
+      const xdr = await buildDonationTx({
+        donorPublicKey: walletPublicKey,
+        amountXLM,
+        ngoId,
+        projectId,
+        donorLat: selectedLatLng.lat,
+        donorLon: selectedLatLng.lng,
       });
+      const signedXdr = await sign(xdr);
 
-      if (!onchain?.txHash) {
-        throw new Error('Blockchain transaction failed');
-      }
-
-      setTxHash(onchain.txHash);
+      // ✅ 2. Submit ON-CHAIN FIRST (SOURCE OF TRUTH)
       setStatus('submitted');
+      const confirmedTxHash = await submitTx(signedXdr);
+      setTxHash(confirmedTxHash);
 
-      // ✅ 2. Persist OFF-CHAIN using SECURE AUTH FETCH
+      // ✅ 3. Persist OFF-CHAIN using SECURE AUTH FETCH
       const res = await authFetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/donations`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/donations/confirm`,
         {
           method: 'POST',
           body: JSON.stringify({
             donor_public_key: walletPublicKey,
-            amount,
+            amount: amountXLM,
             ngo_id: ngoId,
             project_id: projectId ?? undefined,
             donor_location: selectedLatLng,
-            chain_create_tx: onchain.txHash,
+            txHash: confirmedTxHash,
           }),
         }
       );
 
       if (!res.ok) {
-        throw new Error('Backend rejected donation');
+        throw new Error('Backend rejected donation confirmation');
       }
 
       setStatus('confirmed');
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      setError(e.message || 'tx-error');
+      setError(getErrorMessage(e));
       setStatus('error');
     }
   };
 
+  const submit = () => submitXlmWalletDonation();
+
   // ✅ NGO selection from external UI
   useEffect(() => {
     function handler(e: Event) {
-      const detail: any = (e as CustomEvent).detail;
+      const detail = (e as CustomEvent<SelectedNGODetail>).detail;
       if (detail && typeof detail.id === 'number') {
         setNgoId(detail.id);
+        const matched = ngos.find((ngo) => ngo.id === detail.id);
+        setSelectedNgo(matched || {
+          id: detail.id,
+          name: detail.name || 'Selected NGO',
+          sector: detail.sector ?? null,
+          wallet_address: detail.wallet_address || '',
+          verification_status: 'verified',
+        });
         if (detail.project_id) setProjectId(detail.project_id);
       }
     }
-    window.addEventListener('select-ngo', handler as any);
-    return () => window.removeEventListener('select-ngo', handler as any);
-  }, []);
+    window.addEventListener('select-ngo', handler);
+    return () => window.removeEventListener('select-ngo', handler);
+  }, [ngos]);
 
   // ✅ Load NGOs on mount
   useEffect(() => {
     (async () => {
       try {
-        setLoadingNgos(true);
         const data = await listNGOs();
         setNgos(data);
-        if (data.length > 0) setNgoId(data[0].id);
       } catch (e) {
         console.error(e);
-      } finally {
-        setLoadingNgos(false);
       }
     })();
   }, []);
 
-  const ready = Boolean(ngoId && amount > 0 && selectedLatLng);
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRate() {
+      try {
+        // CoinGecko free API — no key needed
+        const res = await fetch(
+          'https://api.coingecko.com/api/v3/simple/price?ids=stellar&vs_currencies=inr'
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        const rate = Number(data?.stellar?.inr);
+        if (!cancelled && Number.isFinite(rate) && rate > 0) {
+          setInrPerXlm(rate);
+        }
+      } catch {
+        // keep fallback
+      }
+    }
+
+    loadRate();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const ready = Boolean(ngoId && selectedNgo && amountXLM > 0 && selectedLatLng);
+  const processing = status === 'signing' || status === 'submitted';
 
   return (
     <div className="stack">
@@ -122,27 +189,16 @@ export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { la
       </div>
 
       <div className="donation-form">
-        {/* ✅ NGO SELECT */}
+        {/* ✅ NGO SELECTION */}
         <div className="form-group">
           <label>
             <span className="label-icon">🏢</span>
-            <span>Select NGO Organization</span>
+            <span>Selected NGO</span>
           </label>
-
-          <select
-            className="form-control"
-            value={ngoId || ''}
-            onChange={(e) => setNgoId(parseInt(e.target.value))}
-            disabled={loadingNgos}
-          >
-            {loadingNgos && <option>Loading NGOs...</option>}
-            {!loadingNgos &&
-              ngos.map((n) => (
-                <option key={n.id} value={n.id}>
-                  {n.name}
-                </option>
-              ))}
-          </select>
+          <div className={`location-preview ${selectedNgo ? 'selected' : ''}`}>
+            {selectedNgo ? `Selected: ${selectedNgo.name}` : 'Choose an NGO from the NGO tab'}
+          </div>
+          {selectedNgo && <div className="form-hint">{impactMessage(selectedNgo.sector)}</div>}
         </div>
 
         {/* ✅ AMOUNT */}
@@ -152,14 +208,34 @@ export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { la
             <span>Donation Amount</span>
           </label>
 
-          <input
-            className="form-control"
-            type="number"
-            min={1}
-            step={0.1}
-            value={amount}
-            onChange={(e) => setAmount(parseFloat(e.target.value))}
-          />
+          <div className="amount-input-enhanced">
+            <div className="amount-quick-select">
+              {INR_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  className={amountInr === preset ? 'active' : ''}
+                  onClick={() => setAmountInr(preset)}
+                  type="button"
+                >
+                  Rs. {preset}
+                </button>
+              ))}
+            </div>
+            <div className="amount-input-wrapper">
+              <span className="currency-badge">INR</span>
+              <input
+                className="form-control amount-field"
+                type="number"
+                min={1}
+                step={100}
+                value={amountInr}
+                onChange={(e) => setAmountInr(Number(e.target.value))}
+              />
+            </div>
+            <div className="form-hint">
+              Approx. {amountXLM.toFixed(2)} XLM at Rs. {inrPerXlm.toFixed(2)} / XLM
+            </div>
+          </div>
         </div>
 
         {/* ✅ LOCATION */}
@@ -177,9 +253,11 @@ export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { la
         </div>
 
         {/* ✅ SUBMIT */}
-        <button className="donate-btn" onClick={submit} disabled={!ready || status !== 'idle'}>
+        <button className="donate-btn" onClick={submit} disabled={!ready || processing}>
           {status === 'idle'
-            ? 'Make Donation'
+            ? connected
+              ? 'Make XLM Donation'
+              : 'Connect Freighter & Donate'
             : status === 'signing'
             ? 'Signing...'
             : 'Processing...'}

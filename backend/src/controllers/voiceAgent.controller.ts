@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { AuthRequest } from '../middleware/auth.js';
+import { AuthRequest } from '../middleware/auth';
 
 export const voiceAgentController = {
   /**
@@ -11,18 +11,13 @@ export const voiceAgentController = {
       const { message, conversationHistory } = req.body;
 
       if (!message) {
-        return res.status(400).json({
-          success: false,
-          error: { message: 'Message is required' },
-        });
+        return res.status(400).json({ error: 'Message is required' });
       }
 
       // TODO: Integrate with Gemini AI API
       // TODO: Implement conversation context management
       // TODO: Add intent detection and routing
       
-      console.log('📨 Voice Agent Message:', message);
-
       // Placeholder response logic
       const response = await generateAIResponse(message, conversationHistory);
 
@@ -33,8 +28,9 @@ export const voiceAgentController = {
           timestamp: new Date().toISOString(),
         },
       });
-    } catch (error) {
-      next(error);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      res.status(500).json({ error: message });
     }
   },
 
@@ -45,12 +41,10 @@ export const voiceAgentController = {
   transcribe: async (req: Request, res: Response, next: NextFunction) => {
     try {
       // TODO: Implement audio transcription using Gemini or Whisper API
-      res.status(501).json({
-        success: false,
-        error: { message: 'Audio transcription not yet implemented' },
-      });
-    } catch (error) {
-      next(error);
+      res.status(501).json({ error: 'Audio transcription not yet implemented' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      res.status(500).json({ error: message });
     }
   },
 };

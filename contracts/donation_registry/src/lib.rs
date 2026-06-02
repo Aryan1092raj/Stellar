@@ -1,8 +1,8 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, token, Address, BytesN, Env, IntoVal,
-    String as SorobanString, Symbol, Val, Vec as SVec,
+    contract, contractimpl, contracttype, token, Address, BytesN, Env, IntoVal, Symbol, Val,
+    Vec as SVec,
 };
 
 const RECORD_TTL_THRESHOLD: u32 = 100_000;
@@ -40,7 +40,7 @@ pub struct Donation {
 #[contracttype]
 pub struct NGOInfo {
     pub id: u32,
-    pub name: SorobanString,
+    pub name: soroban_sdk::String,
     pub wallet: Address,
     pub verified: bool,
 }
@@ -370,7 +370,7 @@ mod test {
                 .unwrap();
             NGOInfo {
                 id: ngo_id,
-                name: SorobanString::from_str(&env, "Test NGO"),
+                name: soroban_sdk::String::from_str(&env, "Test NGO"),
                 wallet,
                 verified: true,
             }

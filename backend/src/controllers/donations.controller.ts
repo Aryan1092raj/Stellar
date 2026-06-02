@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { AuthRequest } from '../middleware/auth.js';
+import { AuthRequest } from '../middleware/auth';
 
 export const donationsController = {
   /**
@@ -15,12 +15,10 @@ export const donationsController = {
       // TODO: Implement pagination
       // TODO: Include blockchain transaction details
 
-      res.status(501).json({
-        success: false,
-        error: { message: 'Donation listing not yet implemented' },
-      });
-    } catch (error) {
-      next(error);
+      res.status(501).json({ error: 'Donation listing not yet implemented' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      res.status(500).json({ error: message });
     }
   },
 
@@ -35,12 +33,10 @@ export const donationsController = {
       // TODO: Fetch donation from database
       // TODO: Include evidence, transaction hash, impact verification
 
-      res.status(501).json({
-        success: false,
-        error: { message: 'Donation fetch not yet implemented' },
-      });
-    } catch (error) {
-      next(error);
+      res.status(501).json({ error: 'Donation fetch not yet implemented' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      res.status(500).json({ error: message });
     }
   },
 
@@ -65,12 +61,10 @@ export const donationsController = {
       // TODO: Store donation in database
       // TODO: Return transaction details
 
-      res.status(501).json({
-        success: false,
-        error: { message: 'Donation creation not yet implemented' },
-      });
-    } catch (error) {
-      next(error);
+      res.status(501).json({ error: 'Donation creation not yet implemented' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      res.status(500).json({ error: message });
     }
   },
 
@@ -89,12 +83,10 @@ export const donationsController = {
       // TODO: Update blockchain contract
       // TODO: Release escrow funds if applicable
 
-      res.status(501).json({
-        success: false,
-        error: { message: 'Impact verification not yet implemented' },
-      });
-    } catch (error) {
-      next(error);
+      res.status(501).json({ error: 'Impact verification not yet implemented' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      res.status(500).json({ error: message });
     }
   },
 
@@ -112,12 +104,10 @@ export const donationsController = {
       // TODO: Store evidence URL in database
       // TODO: Update blockchain contract
 
-      res.status(501).json({
-        success: false,
-        error: { message: 'Evidence upload not yet implemented' },
-      });
-    } catch (error) {
-      next(error);
+      res.status(501).json({ error: 'Evidence upload not yet implemented' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      res.status(500).json({ error: message });
     }
   },
 
@@ -133,12 +123,10 @@ export const donationsController = {
       // TODO: Fetch corresponding donation from database
       // TODO: Return complete tracking information
 
-      res.status(501).json({
-        success: false,
-        error: { message: 'Transaction tracking not yet implemented' },
-      });
-    } catch (error) {
-      next(error);
+      res.status(501).json({ error: 'Transaction tracking not yet implemented' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      res.status(500).json({ error: message });
     }
   },
 
@@ -155,12 +143,10 @@ export const donationsController = {
       // TODO: Group by organization/project
       // TODO: Calculate verification rates
 
-      res.status(501).json({
-        success: false,
-        error: { message: 'Analytics not yet implemented' },
-      });
-    } catch (error) {
-      next(error);
+      res.status(501).json({ error: 'Analytics not yet implemented' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      res.status(500).json({ error: message });
     }
   },
 };

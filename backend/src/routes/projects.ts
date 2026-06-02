@@ -2,9 +2,20 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db';
 import { requireAuth, requireRole } from '../middleware/authMiddleware';
+import { requireVerifiedNGO, VerifiedNGORequest } from '../middleware/verifyNGO';
 
 const useMock = !process.env.DATABASE_URL;
-const mockProjects: any[] = [];
+type ProjectRecord = {
+  id: number;
+  name: string;
+  description?: string;
+  ngo_id: number;
+  latitude?: number;
+  longitude?: number;
+  created_at: string;
+};
+
+const mockProjects: ProjectRecord[] = [];
 
 const router = Router();
 
@@ -24,13 +35,18 @@ router.post(
   '/',
   requireAuth,
   requireRole('ngo'),
-  (req: Request, res: Response) => {
-    const parsed = ProjectSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ errors: parsed.error.issues });
-    }
+  requireVerifiedNGO,
+  async (req: VerifiedNGORequest, res: Response) => {
+    try {
+      const parsed = ProjectSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: 'invalid-request' });
+      }
 
-    (async () => {
+      if (req.verifiedNGOId !== parsed.data.ngo_id) {
+        return res.status(403).json({ error: 'NGO mismatch for project' });
+      }
+
       if (useMock) {
         const created = {
           id: mockProjects.length + 1,
@@ -41,15 +57,15 @@ router.post(
         return res.status(201).json(created);
       }
 
-      const created = await (prisma as any).project.create({
+      const created = await prisma.project.create({
         data: parsed.data,
       });
 
-      res.status(201).json(created);
-    })().catch((e) => {
-      console.error(e);
-      res.status(500).json({ error: 'failed-to-create' });
-    });
+      return res.status(201).json(created);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      return res.status(500).json({ error: message });
+    }
   }
 );
 
@@ -57,21 +73,21 @@ router.post(
  * ✅ LIST PROJECTS (PUBLIC)
  * Anyone can see projects.
  */
-router.get('/', (_req: Request, res: Response) => {
-  (async () => {
+router.get('/', async (_req: Request, res: Response) => {
+  try {
     if (useMock) {
       return res.json(mockProjects.slice().sort((a, b) => b.id - a.id));
     }
 
-    const list = await (prisma as any).project.findMany({
+    const list = await prisma.project.findMany({
       orderBy: { created_at: 'desc' },
     });
 
-    res.json(list);
-  })().catch((e) => {
-    console.error(e);
-    res.status(500).json({ error: 'failed-to-list' });
-  });
+    return res.json(list);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return res.status(500).json({ error: message });
+  }
 });
 
 export default router;

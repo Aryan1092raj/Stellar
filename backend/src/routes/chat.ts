@@ -40,6 +40,11 @@ Guidelines:
 - Always emphasize transparency and blockchain benefits
 `;
 
+type ConversationMessage = {
+  role: 'user' | 'model' | string;
+  content: string;
+};
+
 // Chat endpoint
 router.post('/message', async (req, res) => {
   try {
@@ -50,10 +55,7 @@ router.post('/message', async (req, res) => {
     }
 
     if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({ 
-        error: 'Gemini API key not configured',
-        fallbackResponse: 'I apologize, but the AI assistant is not configured yet. Please add your GEMINI_API_KEY to the backend .env file.'
-      });
+      return res.status(500).json({ error: 'Gemini API key not configured' });
     }
 
     // Get the generative model
@@ -70,7 +72,7 @@ router.post('/message', async (req, res) => {
           role: 'model',
           parts: [{ text: 'I understand. I am GeoLedger AI Assistant, ready to help users with the blockchain donation platform. I will provide helpful, concise answers about donations, wallets, NGOs, and blockchain transparency.' }],
         },
-        ...conversationHistory.map((msg: any) => ({
+        ...(conversationHistory as ConversationMessage[]).map((msg) => ({
           role: msg.role === 'user' ? 'user' : 'model',
           parts: [{ text: msg.content }],
         })),
@@ -91,13 +93,9 @@ router.post('/message', async (req, res) => {
       timestamp: new Date().toISOString(),
     });
 
-  } catch (error: any) {
-    console.error('Gemini API error:', error);
-    res.status(500).json({ 
-      error: 'Failed to get AI response',
-      details: error.message,
-      fallbackResponse: 'I apologize, but I encountered an error. Please try asking your question again, or check out our documentation for help.'
-    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return res.status(500).json({ error: message });
   }
 });
 
@@ -135,11 +133,9 @@ router.get('/health', async (req, res) => {
       message: 'Gemini AI is operational',
       response: result.response.text(),
     });
-  } catch (error: any) {
-    res.status(500).json({
-      status: 'error',
-      message: error.message,
-    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return res.status(500).json({ error: message });
   }
 });
 

@@ -1,8 +1,7 @@
 import IORedis from 'ioredis';
 
 const redisUrl = process.env.REDIS_URL;
-// use a permissive any type to avoid TypeScript issues if types aren't installed
-let redis: any = null;
+let redis: IORedis | null = null;
 if (redisUrl) redis = new IORedis(redisUrl);
 
 type Entry = { code: string; expiresAt: number };
@@ -46,7 +45,7 @@ export async function incrementSendCount(email: string, sendsPerWindow = 5, wind
     tx.incr(key);
     tx.ttl(key);
     const res = await tx.exec();
-    const cur = Number(res?.[0][1] ?? 0);
+    const cur = Number(res?.[0]?.[1] ?? 0);
     let ttl = Number(res?.[1][1] ?? -1);
     if (ttl === -1) await redis.expire(key, windowSeconds);
     return { allowed: cur <= sendsPerWindow, count: cur };

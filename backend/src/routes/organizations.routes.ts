@@ -1,5 +1,5 @@
 import { Router } from 'express';
-// Add any necessary controller imports here
+// Add required controller imports here
 
 const router = Router();
 

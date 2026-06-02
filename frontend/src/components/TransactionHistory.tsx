@@ -16,18 +16,33 @@ interface Transaction {
   fee?: string;
 }
 
-interface StellarTransaction {
+interface HorizonPaymentRecord {
   id: string;
   created_at: string;
   type: string;
-  from: string;
-  to: string;
-  amount: string;
-  asset_type: string;
-  successful: boolean;
-  hash: string;
-  fee_charged: string;
+  from?: string;
+  to?: string;
+  amount?: string;
+  starting_balance?: string;
+  asset_type?: string;
+  asset_code?: string;
+  successful?: boolean;
+  transaction_hash?: string;
+  fee_charged?: string;
   memo?: string;
+  funder?: string;
+  account?: string;
+}
+
+interface HorizonPaymentsResponse {
+  _embedded?: {
+    records?: HorizonPaymentRecord[];
+  };
+}
+
+interface DonationApiRecord {
+  donor_public_key: string;
+  created_at: string;
 }
 
 export default function TransactionHistory() {
@@ -64,24 +79,24 @@ export default function TransactionHistory() {
         throw new Error('Failed to fetch transactions');
       }
 
-      const data = await response.json();
+      const data = await response.json() as HorizonPaymentsResponse;
       
       // Also fetch our donation records
       const donationsRes = await fetch('/api/donations', {
         headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
       });
-      const donations = donationsRes.ok ? await donationsRes.json() : [];
+      const donations = donationsRes.ok ? await donationsRes.json() as DonationApiRecord[] : [];
 
       // Transform and combine data
-      const stellarTxs: Transaction[] = data._embedded.records
-        .filter((record: any) => 
+      const stellarTxs: Transaction[] = (data._embedded?.records || [])
+        .filter((record) =>
           record.type === 'payment' || 
           record.type === 'create_account' ||
           record.type === 'path_payment_strict_receive'
         )
-        .map((record: any) => {
+        .map((record) => {
           const isReceive = record.to === walletInfo.publicKey;
-          const isDonation = donations.some((d: any) => 
+          const isDonation = donations.some((d) =>
             d.donor_public_key === walletInfo.publicKey && 
             new Date(d.created_at).getTime() - new Date(record.created_at).getTime() < 60000
           );
@@ -89,7 +104,7 @@ export default function TransactionHistory() {
           return {
             id: record.id,
             type: isDonation ? 'donation' : (isReceive ? 'receive' : 'send'),
-            amount: record.amount || record.starting_balance,
+            amount: record.amount || record.starting_balance || '0',
             asset: record.asset_type === 'native' ? 'XLM' : record.asset_code,
             timestamp: record.created_at,
             status: record.successful ? 'success' : 'failed',
@@ -102,9 +117,9 @@ export default function TransactionHistory() {
         });
 
       setTransactions(stellarTxs);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error loading transactions:', err);
-      setError(err.message || 'Failed to load transaction history');
+      setError(err instanceof Error ? err.message : 'Failed to load transaction history');
     } finally {
       setLoading(false);
     }

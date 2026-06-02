@@ -15,11 +15,28 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Install & test backend
+      - name: Install backend dependencies
         working-directory: backend
+        run: npm ci
+      - name: Block unsafe production email config
+        env:
+          NODE_ENV: ${{ secrets.NODE_ENV }}
+          DISABLE_EMAILS: ${{ secrets.DISABLE_EMAILS }}
         run: |
-          npm ci
-          npm test
+          if [ "$NODE_ENV" = "production" ] && [ "$DISABLE_EMAILS" = "1" ]; then
+            echo "DISABLE_EMAILS=1 is not allowed when NODE_ENV=production"
+            exit 1
+          fi
+      - name: Run Prisma migrations
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx prisma migrate deploy
+      - name: Test backend
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm test
 
   frontend:
     runs-on: ubuntu-latest

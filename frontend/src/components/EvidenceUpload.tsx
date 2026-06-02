@@ -1,6 +1,8 @@
 "use client";
 import { useState } from "react";
 import { authFetch } from "../lib/auth";
+import { submitTx } from "../lib/stellar";
+import { useFreighter } from "../hooks/useFreighter";
 
 export default function EvidenceUpload() {
   const [donationId, setDonationId] = useState("");
@@ -8,6 +10,8 @@ export default function EvidenceUpload() {
   const [status, setStatus] = useState<"idle" | "uploading" | "done" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [cid, setCid] = useState<string | null>(null);
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const { publicKey, connect, sign } = useFreighter();
 
   async function upload() {
     if (!file || !donationId) return;
@@ -16,12 +20,15 @@ export default function EvidenceUpload() {
     setError(null);
 
     try {
-      // ✅ 1. Upload file to IPFS via SECURED backend
+      const walletPublicKey = publicKey || await connect();
+      if (!walletPublicKey) throw new Error("Connect Freighter before signing");
+
       const form = new FormData();
       form.append("file", file);
+      form.append("donation_id", donationId);
 
       const res = await authFetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/evidence/upload`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/evidence/prepare`,
         {
           method: "POST",
           body: form,
@@ -30,26 +37,44 @@ export default function EvidenceUpload() {
 
       const data = await res.json();
 
-      if (!res.ok || !data.cid) {
-        throw new Error(data?.error || "IPFS upload failed");
+      if (!res.ok || !data.ipfsCid || !data.xdr) {
+        throw new Error(data?.error || "Evidence preparation failed");
       }
 
-      setCid(data.cid);
+      const signedXdr = await sign(data.xdr);
+      const confirmedTxHash = await submitTx(signedXdr);
 
-      // ✅ 2. Bind Evidence to Donation (optional future hard-binding)
-      // You already secured the backend evidence route for this
+      const confirmRes = await authFetch(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/evidence/confirm`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            donationId,
+            ipfsCid: data.ipfsCid,
+            txHash: confirmedTxHash,
+          }),
+        }
+      );
 
+      if (!confirmRes.ok) {
+        const confirmData = await confirmRes.json();
+        throw new Error(confirmData?.error || "Evidence confirmation failed");
+      }
+
+      setCid(data.ipfsCid);
+      setTxHash(confirmedTxHash);
       setStatus("done");
 
       setTimeout(() => {
         setDonationId("");
         setFile(null);
         setCid(null);
+        setTxHash(null);
         setStatus("idle");
       }, 4000);
-    } catch (e: any) {
-      console.error(e);
-      setError(e.message || "Upload failed");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Upload failed";
+      setError(message);
       setStatus("error");
     }
   }
@@ -125,6 +150,12 @@ export default function EvidenceUpload() {
                 <>
                   Evidence uploaded successfully.<br />
                   CID: <code>{cid}</code>
+                  {txHash && (
+                    <>
+                      <br />
+                      Tx: <code>{txHash}</code>
+                    </>
+                  )}
                 </>
               )}
               {status === "error" && (error || "Upload failed")}

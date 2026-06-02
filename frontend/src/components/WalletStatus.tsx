@@ -73,8 +73,8 @@ export default function WalletStatus() {
       saveWalletInfo(info);
       setShowWalletModal(false);
       await loadBalance(info.publicKey);
-    } catch (err: any) {
-      setError(err.message || 'Failed to connect wallet');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to connect wallet');
       console.error('Wallet connection error:', err);
     } finally {
       setConnecting(false);

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { AuthRequest } from '../middleware/auth.js';
+import { AuthRequest } from '../middleware/auth';
 
 export const organizationsController = {
   /**
@@ -15,12 +15,10 @@ export const organizationsController = {
       // TODO: Implement pagination
       // TODO: Return organization list
 
-      res.status(501).json({
-        success: false,
-        error: { message: 'Organization listing not yet implemented' },
-      });
-    } catch (error) {
-      next(error);
+      res.status(501).json({ error: 'Organization listing not yet implemented' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      res.status(500).json({ error: message });
     }
   },
 
@@ -35,12 +33,10 @@ export const organizationsController = {
       // TODO: Fetch organization from database
       // TODO: Include projects, donations, impact metrics
 
-      res.status(501).json({
-        success: false,
-        error: { message: 'Organization fetch not yet implemented' },
-      });
-    } catch (error) {
-      next(error);
+      res.status(501).json({ error: 'Organization fetch not yet implemented' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      res.status(500).json({ error: message });
     }
   },
 
@@ -57,12 +53,10 @@ export const organizationsController = {
       // TODO: Link to authenticated user
       // TODO: Initialize blockchain verification
 
-      res.status(501).json({
-        success: false,
-        error: { message: 'Organization creation not yet implemented' },
-      });
-    } catch (error) {
-      next(error);
+      res.status(501).json({ error: 'Organization creation not yet implemented' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      res.status(500).json({ error: message });
     }
   },
 
@@ -79,12 +73,10 @@ export const organizationsController = {
       // TODO: Update organization in database
       // TODO: Handle wallet address changes (re-verification)
 
-      res.status(501).json({
-        success: false,
-        error: { message: 'Organization update not yet implemented' },
-      });
-    } catch (error) {
-      next(error);
+      res.status(501).json({ error: 'Organization update not yet implemented' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      res.status(500).json({ error: message });
     }
   },
 
@@ -100,12 +92,10 @@ export const organizationsController = {
       // TODO: Update verification status
       // TODO: Interact with Stellar smart contract
 
-      res.status(501).json({
-        success: false,
-        error: { message: 'Organization verification not yet implemented' },
-      });
-    } catch (error) {
-      next(error);
+      res.status(501).json({ error: 'Organization verification not yet implemented' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      res.status(500).json({ error: message });
     }
   },
 
@@ -120,12 +110,10 @@ export const organizationsController = {
       // TODO: Fetch projects from database
       // TODO: Include project details and donation stats
 
-      res.status(501).json({
-        success: false,
-        error: { message: 'Project listing not yet implemented' },
-      });
-    } catch (error) {
-      next(error);
+      res.status(501).json({ error: 'Project listing not yet implemented' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      res.status(500).json({ error: message });
     }
   },
 
@@ -140,12 +128,10 @@ export const organizationsController = {
       // TODO: Fetch donations from database
       // TODO: Include transaction details and evidence
 
-      res.status(501).json({
-        success: false,
-        error: { message: 'Donation history not yet implemented' },
-      });
-    } catch (error) {
-      next(error);
+      res.status(501).json({ error: 'Donation history not yet implemented' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      res.status(500).json({ error: message });
     }
   },
 };

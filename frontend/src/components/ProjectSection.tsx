@@ -1,12 +1,12 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { FormEvent, useState, useEffect } from 'react';
 import { z } from 'zod';
 import { getRole } from '../lib/auth';
 
 const projectSchema = z.object({ name: z.string().min(2), ngo_id: z.number(), description: z.string().optional() });
 
 export default function ProjectSection() {
-  const [projects, setProjects] = useState<any[]>([]);
+  const [projects, setProjects] = useState<Array<{ id: number; name: string; ngo_id: number }>>([]);
   const [form, setForm] = useState({ name: '', ngo_id: '', description: '' });
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
@@ -16,7 +16,7 @@ export default function ProjectSection() {
   }
   useEffect(() => { load(); const id = setInterval(load, 15000); return () => clearInterval(id); }, []);
 
-  async function submit(e: any) {
+  async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const parsed = projectSchema.safeParse({ name: form.name, ngo_id: parseInt(form.ngo_id), description: form.description || undefined });
     if (!parsed.success) { setErrors(parsed.error.issues.map(i => i.message)); return; }

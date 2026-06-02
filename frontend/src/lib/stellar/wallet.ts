@@ -1,4 +1,5 @@
 import { StellarWalletsKit, WalletNetwork, FreighterModule } from '@creit.tech/stellar-wallets-kit';
+import { Networks } from '@stellar/stellar-sdk';
 import {
   isConnected,
   requestAccess,
@@ -16,9 +17,40 @@ export interface WalletInfo {
 
 // Network configuration
 export const STELLAR_NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK || 'TESTNET';
-export const NETWORK_PASSPHRASE = STELLAR_NETWORK === 'TESTNET' 
-  ? 'Test SDF Network ; September 2015'
-  : 'Public Global Stellar Network ; September 2015';
+function resolveNetworkPassphrase(network: string) {
+  switch (network.toLowerCase()) {
+    case 'public':
+    case 'mainnet':
+      return Networks.PUBLIC;
+    case 'futurenet':
+      return Networks.FUTURENET;
+    case 'sandbox':
+      return Networks.SANDBOX;
+    case 'standalone':
+      return Networks.STANDALONE;
+    case 'testnet':
+    default:
+      return Networks.TESTNET;
+  }
+}
+export const NETWORK_PASSPHRASE = resolveNetworkPassphrase(STELLAR_NETWORK);
+
+type HorizonBalance = {
+  asset_type: string;
+  balance: string;
+};
+
+type HorizonAccount = {
+  balances: HorizonBalance[];
+};
+
+function errorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && error && 'message' in error) {
+    return String((error as { message?: unknown }).message || 'Unknown error');
+  }
+  return 'Unknown error';
+}
 
 // Wallet detection
 export async function hasFreighter(): Promise<boolean> {
@@ -71,8 +103,8 @@ export async function connectFreighter(): Promise<WalletInfo> {
       type: 'freighter',
       network: networkResult.network || STELLAR_NETWORK,
     };
-  } catch (error: any) {
-    throw new Error(`Failed to connect Freighter: ${error.message}`);
+  } catch (error: unknown) {
+    throw new Error(`Failed to connect Freighter: ${errorMessage(error)}`);
   }
 }
 
@@ -84,6 +116,9 @@ export async function connectXBull(): Promise<WalletInfo> {
   
   try {
     const xBullSDK = window.xBullSDK;
+    if (!xBullSDK) {
+      throw new Error('xBull wallet not installed. Please install from https://xbull.app/');
+    }
     await xBullSDK.connect();
     const publicKey = await xBullSDK.getPublicKey();
     
@@ -92,8 +127,8 @@ export async function connectXBull(): Promise<WalletInfo> {
       type: 'xbull',
       network: STELLAR_NETWORK,
     };
-  } catch (error: any) {
-    throw new Error(`Failed to connect xBull: ${error.message || 'Unknown error'}`);
+  } catch (error: unknown) {
+    throw new Error(`Failed to connect xBull: ${errorMessage(error)}`);
   }
 }
 
@@ -105,6 +140,9 @@ export async function connectAlbedo(): Promise<WalletInfo> {
   
   try {
     const albedo = window.albedo;
+    if (!albedo) {
+      throw new Error('Albedo not available. Please enable Albedo support.');
+    }
     const result = await albedo.publicKey({});
     
     return {
@@ -112,8 +150,8 @@ export async function connectAlbedo(): Promise<WalletInfo> {
       type: 'albedo',
       network: STELLAR_NETWORK,
     };
-  } catch (error: any) {
-    throw new Error(`Failed to connect Albedo: ${error.message || 'Unknown error'}`);
+  } catch (error: unknown) {
+    throw new Error(`Failed to connect Albedo: ${errorMessage(error)}`);
   }
 }
 
@@ -154,14 +192,18 @@ export async function signXdr(xdr: string, type: WalletType = 'freighter'): Prom
       
       case 'xbull':
         if (!hasXBull()) throw new Error('xBull not found');
-        const xBullResult = await window.xBullSDK.signTransaction(xdr, {
+        const xBullSDK = window.xBullSDK;
+        if (!xBullSDK) throw new Error('xBull not found');
+        const xBullResult = await xBullSDK.signTransaction(xdr, {
           networkPassphrase: NETWORK_PASSPHRASE,
         });
         return xBullResult;
       
       case 'albedo':
         if (!hasAlbedo()) throw new Error('Albedo not found');
-        const albedoResult = await window.albedo.tx({
+        const albedo = window.albedo;
+        if (!albedo) throw new Error('Albedo not found');
+        const albedoResult = await albedo.tx({
           xdr,
           network: STELLAR_NETWORK.toLowerCase(),
         });
@@ -170,11 +212,12 @@ export async function signXdr(xdr: string, type: WalletType = 'freighter'): Prom
       default:
         throw new Error(`Unsupported wallet type: ${type}`);
     }
-  } catch (error: any) {
-    if (error.message?.includes('User declined') || error.message?.includes('rejected')) {
+  } catch (error: unknown) {
+    const message = errorMessage(error);
+    if (message.includes('User declined') || message.includes('rejected')) {
       throw new Error('Transaction signing rejected by user');
     }
-    throw new Error(`Failed to sign transaction: ${error.message || 'Unknown error'}`);
+    throw new Error(`Failed to sign transaction: ${message}`);
   }
 }
 
@@ -194,11 +237,11 @@ export async function getWalletBalance(publicKey: string): Promise<string> {
       throw new Error('Failed to fetch account balance');
     }
     
-    const data = await response.json();
-    const xlmBalance = data.balances.find((b: any) => b.asset_type === 'native');
+    const data = (await response.json()) as HorizonAccount;
+    const xlmBalance = data.balances.find((b) => b.asset_type === 'native');
     
     return xlmBalance ? xlmBalance.balance : '0';
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching balance:', error);
     return '0';
   }

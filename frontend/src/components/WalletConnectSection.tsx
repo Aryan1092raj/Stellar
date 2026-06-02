@@ -1,6 +1,15 @@
 'use client';
 import { useEffect, useState } from 'react';
 
+type HorizonBalance = {
+  asset_type: string;
+  balance: string;
+};
+
+type HorizonAccountResponse = {
+  balances?: HorizonBalance[];
+};
+
 export default function WalletConnectSection() {
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [network, setNetwork] = useState<string>(process.env.NEXT_PUBLIC_STELLAR_NETWORK || 'testnet');
@@ -14,10 +23,10 @@ export default function WalletConnectSection() {
     try {
       const res = await fetch(`${horizonUrl}/accounts/${pk}`);
       if (!res.ok) throw new Error('horizon-failed');
-      const data = await res.json();
-      const native = (data.balances || []).find((b: any) => b.asset_type === 'native');
+      const data = await res.json() as HorizonAccountResponse;
+      const native = (data.balances || []).find((b) => b.asset_type === 'native');
       if (native) setBalance(native.balance);
-    } catch (e: any) {
+    } catch (e: unknown) {
       setError('balance-error');
       console.error(e);
     }
@@ -35,7 +44,7 @@ export default function WalletConnectSection() {
       const info = await window.freighterApi.getUserInfo();
       setPublicKey(info.publicKey);
       await refreshBalance(info.publicKey);
-    } catch (e: any) {
+    } catch (e: unknown) {
       setError('connect-failed');
       console.error(e);
     } finally {

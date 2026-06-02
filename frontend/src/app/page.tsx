@@ -12,8 +12,9 @@ import TransactionHistory from '../components/TransactionHistory';
 import SidebarHeader from '../components/SidebarHeader';
 import WalletStatus from '../components/WalletStatus';
 import Chatbot from '../components/Chatbot';
-import Link from 'next/link';
 import { getRole } from '../lib/auth';
+import ErrorBoundary from '../components/ErrorBoundary';
+import { CONTRACT_ENV_KEYS } from '../lib/constants';
 
 const Map = nextDynamic(() => import('../components/Map'), { ssr: false });
 
@@ -24,9 +25,9 @@ export default function Home() {
   useEffect(() => { setRole(getRole()); }, []);
 
   const donateTab = (
-    <div>
+    <ErrorBoundary label="Donation flow could not load">
       <DonationFlow selectedLatLng={selectedLatLng} />
-    </div>
+    </ErrorBoundary>
   );
   const ngosTab = (<NGOSection />);
   const ngoDashboardTab = (<NGODashboard />);
@@ -37,7 +38,9 @@ export default function Home() {
     <div className={`app-container layout ${mapOpen ? '' : 'map-collapsed'}`}>
       <aside className="sidebar-new">
         <SidebarHeader />
-        <WalletStatus />
+        <ErrorBoundary label="Wallet connection could not load">
+          <WalletStatus />
+        </ErrorBoundary>
         <Tabs
           tabs={
             role === 'ngo' 
@@ -57,7 +60,9 @@ export default function Home() {
         />
       </aside>
       <main className="map-container" style={{ flex: 1 }}>
-        <Map onSelect={(latlng: { lat: number; lng: number }) => setSelectedLatLng(latlng)} />
+        <ErrorBoundary label="Map could not load">
+          <Map onSelect={(latlng: { lat: number; lng: number }) => setSelectedLatLng(latlng)} />
+        </ErrorBoundary>
         <div className="map-overlay">
           <h4 style={{ marginBottom: 12, fontSize: 14, fontWeight:600 }}>Legend</h4>
           <div className="legend-item"><div className="legend-color" style={{ background:'#00C851' }}></div><span>Donations</span></div>
@@ -75,10 +80,10 @@ export default function Home() {
 }
 
 function ContractsStatus() {
-  const d = process.env.NEXT_PUBLIC_DONATION_REGISTRY_CONTRACT_ID;
-  const n = process.env.NEXT_PUBLIC_NGO_VERIFICATION_CONTRACT_ID;
-  const i = process.env.NEXT_PUBLIC_IMPACT_ESCROW_CONTRACT_ID;
-  const t = process.env.NEXT_PUBLIC_TOKEN_MANAGER_CONTRACT_ID;
+  const d = process.env[CONTRACT_ENV_KEYS.DONATION_REGISTRY] || process.env[CONTRACT_ENV_KEYS.DONATION_REGISTRY_ID];
+  const n = process.env[CONTRACT_ENV_KEYS.NGO_VERIFICATION_ID];
+  const i = process.env[CONTRACT_ENV_KEYS.IMPACT_ESCROW_ID];
+  const t = process.env[CONTRACT_ENV_KEYS.TOKEN_MANAGER_ID];
   const ok = d && n && i && t;
   return (
     <div style={{ fontSize: 12, padding: 8, border: '1px dashed #ddd' }}>
@@ -93,10 +98,10 @@ function ContractsStatus() {
 }
 
 function ContractsPanel() {
-  const d = process.env.NEXT_PUBLIC_DONATION_REGISTRY_CONTRACT_ID;
-  const n = process.env.NEXT_PUBLIC_NGO_VERIFICATION_CONTRACT_ID;
-  const i = process.env.NEXT_PUBLIC_IMPACT_ESCROW_CONTRACT_ID;
-  const t = process.env.NEXT_PUBLIC_TOKEN_MANAGER_CONTRACT_ID;
+  const d = process.env[CONTRACT_ENV_KEYS.DONATION_REGISTRY] || process.env[CONTRACT_ENV_KEYS.DONATION_REGISTRY_ID];
+  const n = process.env[CONTRACT_ENV_KEYS.NGO_VERIFICATION_ID];
+  const i = process.env[CONTRACT_ENV_KEYS.IMPACT_ESCROW_ID];
+  const t = process.env[CONTRACT_ENV_KEYS.TOKEN_MANAGER_ID];
   return (
     <div>
       <h3 style={{ marginBottom: 16 }}>Smart Contracts</h3>

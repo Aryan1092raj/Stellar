@@ -3,13 +3,14 @@ import cors from 'cors';
 import helmet from "helmet";
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
-import routes from './routes/index.js';
-import { config } from './config/env.js';
-import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
-import { initializeDatabase } from './config/database.js';
-import { logger } from './utils/logger.js';
+import routes from './routes';
+import { config } from './config/env';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler';
+import { initializeDatabase } from './config/database';
+import { logger } from './utils/logger';
+import { prisma } from './db';
 
-// console.log("FRONTEND_URL ACTUAL VALUE:", config.FRONTEND_URL);
+const ALLOWED = (process.env.ALLOWED_ORIGINS || '').split(',').map(o => o.trim()).filter(Boolean);
 
 const app = express();              // CREATE APP FIRST
 app.use(cookieParser());            // THEN USE PLUGINS
@@ -18,34 +19,9 @@ app.use(helmet());
 
 // CORS configuration
 app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-
-    if (
-      origin === "http://localhost:3000" ||
-      origin.endsWith(".vercel.app")
-    ) {
-      return callback(null, true);
-    }
-
-    return callback(new Error("Not allowed by CORS"));
-  },
+  origin: (origin, cb) => (!origin || ALLOWED.includes(origin)) ? cb(null, true) : cb(new Error('CORS blocked')),
   credentials: true,
 }));
-
-
-console.log({
-  corsType: typeof cors,
-  helmetType: typeof helmet,
-  cookieParserType: typeof cookieParser,
-  rateLimitType: typeof rateLimit,
-  routesType: typeof routes,
-  notFoundHandlerType: typeof notFoundHandler,
-  errorHandlerType: typeof errorHandler
-});
-
-// console.log("ROUTES IMPORT RAW VALUE:", routes);
-
 
 // Body parsing
 app.use(express.json({ limit: '2mb' }));
@@ -61,9 +37,14 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-console.log("ROUTES IMPORT:", routes);
-console.log("ROUTES TYPE:", typeof routes);
-
+app.get('/health', async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: 'ok', db: 'ok', ts: new Date().toISOString() });
+  } catch {
+    res.status(503).json({ status: 'error', db: 'unreachable' });
+  }
+});
 
 // API routes
 app.use("/api", routes);

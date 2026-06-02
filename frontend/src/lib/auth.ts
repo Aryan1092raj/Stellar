@@ -36,7 +36,7 @@ export async function verifyOtp(email: string, otp: string, role: string) {
 
 // ===== SESSION CORE =====
 
-function saveSession(token: string, role: string) {
+export function saveSession(token: string, role: string) {
   localStorage.setItem("token", token);
   localStorage.setItem("role", role);
   localStorage.setItem("login_time", Date.now().toString());
@@ -54,10 +54,16 @@ export function getRole() {
 
 // ===== JWT EXPIRY HANDLING =====
 
-function decodeJwt(token: string): any | null {
+type JwtPayload = {
+  exp?: number;
+  [key: string]: unknown;
+};
+
+function decodeJwt(token: string): JwtPayload | null {
   try {
     const payload = token.split(".")[1];
-    return JSON.parse(atob(payload));
+    const decoded = JSON.parse(atob(payload));
+    return decoded && typeof decoded === "object" ? decoded as JwtPayload : null;
   } catch {
     return null;
   }
@@ -108,12 +114,12 @@ export function logout() {
 
 export async function authFetch(url: string, options: RequestInit = {}) {
   const token = getToken();
+  const headers = new Headers(options.headers);
 
-  const headers = {
-    ...(options.headers || {}),
-    Authorization: token ? `Bearer ${token}` : "",
-    "Content-Type": "application/json",
-  };
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (!(options.body instanceof FormData) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
 
   const res = await fetch(url, {
     ...options,

@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { getRole } from '../lib/auth';
+import { submitTx } from '../lib/stellar';
+import { useFreighter } from '../hooks/useFreighter';
 
 interface Donation {
   id: number;
@@ -36,6 +38,7 @@ export default function NGODashboard() {
   });
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const [totalReceived, setTotalReceived] = useState(0);
+  const { publicKey, connect, sign } = useFreighter();
 
   useEffect(() => {
     setRole(getRole());
@@ -74,8 +77,10 @@ export default function NGODashboard() {
 
     setUploadStatus('uploading');
     try {
-      // Upload to evidence API
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/evidence/upload`, {
+      const walletPublicKey = publicKey || await connect();
+      if (!walletPublicKey) throw new Error('Connect Freighter before signing');
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/evidence/prepare`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -90,25 +95,58 @@ export default function NGODashboard() {
             timestamp: new Date().toISOString(),
           })], { type: 'application/json' });
           form.append('file', blob, 'update.json');
+          form.append('donation_id', String(newUpdate.donation_id));
           return form;
         })(),
       });
 
-      if (!res.ok) throw new Error('Upload failed');
+      if (!res.ok) throw new Error('Evidence preparation failed');
       
       const evidenceData = await res.json();
+      if (!evidenceData.xdr || !evidenceData.ipfsCid) throw new Error('Evidence preparation did not return XDR');
 
-      // Update donation with evidence URL
-      const updateRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/donations/${newUpdate.donation_id}/evidence`, {
-        method: 'PUT',
+      const signedEvidenceXdr = await sign(evidenceData.xdr);
+      const evidenceTxHash = await submitTx(signedEvidenceXdr);
+
+      const evidenceConfirmRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/evidence/confirm`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify({ evidence_url: evidenceData.url }),
+        body: JSON.stringify({
+          donationId: newUpdate.donation_id,
+          ipfsCid: evidenceData.ipfsCid,
+          txHash: evidenceTxHash,
+        }),
       });
 
-      if (updateRes.ok) {
+      if (!evidenceConfirmRes.ok) throw new Error('Evidence confirmation failed');
+
+      const verifyPrepareRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/donations/${newUpdate.donation_id}/verify/prepare`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+
+      if (!verifyPrepareRes.ok) throw new Error('Impact verification preparation failed');
+      const verifyPrepare = await verifyPrepareRes.json();
+      if (!verifyPrepare.xdr) throw new Error('Impact verification preparation did not return XDR');
+
+      const signedVerifyXdr = await sign(verifyPrepare.xdr);
+      const verifyTxHash = await submitTx(signedVerifyXdr);
+
+      const verifyConfirmRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/donations/${newUpdate.donation_id}/verify/confirm`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ txHash: verifyTxHash }),
+      });
+
+      if (verifyConfirmRes.ok) {
         setUploadStatus('success');
         setNewUpdate({
           donation_id: 0,
@@ -132,7 +170,7 @@ export default function NGODashboard() {
       } else {
         setUploadStatus('error');
       }
-    } catch (err) {
+    } catch {
       setUploadStatus('error');
       setTimeout(() => setUploadStatus('idle'), 3000);
     }
@@ -223,7 +261,7 @@ export default function NGODashboard() {
                 </label>
                 <textarea
                   className="form-control evidence-textarea"
-                  placeholder="Describe the work completed, impact achieved, and any challenges..."
+                  placeholder="Describe the work completed, impact achieved, and challenges..."
                   value={newUpdate.description}
                   onChange={(e) => setNewUpdate({ ...newUpdate, description: e.target.value })}
                   rows={4}
