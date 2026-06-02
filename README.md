@@ -52,7 +52,7 @@ Under `/contracts`:
 - Node.js 20+
 - npm
 - PostgreSQL (optional; without `DATABASE_URL`, backend uses mock mode for data paths that support it)
-- Rust + Soroban CLI (for contract development/deployment)
+- Rust + Stellar CLI (`stellar`, includes Soroban commands) for contract development/deployment
 - Freighter wallet extension (for wallet-based flows)
 
 ## Quick start (local)
@@ -101,8 +101,8 @@ Key backend domains:
 
 Base API prefix: `/api`
 
-- `GET /health` (service + DB health)
-- `GET /api/health`
+- `GET /health` (root health + DB connectivity check)
+- `GET /api/health` (API router health payload)
 - `POST /api/auth/google`
 - `GET /api/donations`
 - `POST /api/donations`
