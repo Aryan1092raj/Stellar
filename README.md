@@ -2,7 +2,7 @@
 
 A full-stack blockchain donation platform built on **Stellar/Soroban** for transparent charitable giving.
 
-Donations are recorded with geolocation metadata, NGOs submit impact evidence, and transaction flow is backed by smart contracts plus a web application stack.
+Donations are recorded with geolocation metadata, NGOs submit impact evidence, and transaction flow is backed by smart contracts and a web application stack.
 
 ## What’s in this repo
 
@@ -51,7 +51,7 @@ Under `/contracts`:
 
 - Node.js 20+
 - npm
-- PostgreSQL (optional; without `DATABASE_URL`, backend uses mock mode for data paths that support it)
+- PostgreSQL (optional; without `DATABASE_URL`, backend falls back to in-memory mock storage for donation/project/NGO API flows)
 - Rust + Stellar CLI (command: `stellar`; sometimes referenced as `stellar-cli` / `soroban-cli`) for contract development/deployment
 - Freighter wallet extension (for wallet-based flows)
 
@@ -92,7 +92,8 @@ Use:
 
 Key backend domains:
 
-- DB/auth: `DATABASE_URL`, `JWT_SECRET`, Firebase service account config
+- Database: `DATABASE_URL`
+- Auth: `JWT_SECRET`, Firebase service account config
 - Blockchain: Soroban + contract IDs
 - Evidence/IPFS: Pinata/IPFS keys
 - AI: `GEMINI_API_KEY`
