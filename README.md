@@ -60,7 +60,7 @@ Under `/contracts`:
 ### 1) Backend
 
 ```bash
-cd /tmp/workspace/arywk40-hue/Stellar/backend
+cd backend
 cp .env.example .env
 npm install
 
@@ -75,7 +75,7 @@ Backend default address: `http://127.0.0.1:4000`
 ### 2) Frontend
 
 ```bash
-cd /tmp/workspace/arywk40-hue/Stellar/frontend
+cd frontend
 cp .env.example .env.local
 npm install
 npm run dev
@@ -87,8 +87,8 @@ Frontend default address: `http://localhost:3000`
 
 Use:
 
-- `/tmp/workspace/arywk40-hue/Stellar/backend/.env.example`
-- `/tmp/workspace/arywk40-hue/Stellar/frontend/.env.example`
+- `backend/.env.example`
+- `frontend/.env.example`
 
 Key backend domains:
 
@@ -125,7 +125,7 @@ From repo root, see deployment helpers in `/scripts`, including:
 ### Backend
 
 ```bash
-cd /tmp/workspace/arywk40-hue/Stellar/backend
+cd backend
 npm run dev
 npm run build
 npm test
@@ -134,7 +134,7 @@ npm test
 ### Frontend
 
 ```bash
-cd /tmp/workspace/arywk40-hue/Stellar/frontend
+cd frontend
 npm run dev
 npm run build
 npm test
@@ -143,7 +143,7 @@ npm test
 ### Firebase functions
 
 ```bash
-cd /tmp/workspace/arywk40-hue/Stellar/functions
+cd functions
 npm run build
 npm run lint
 ```
