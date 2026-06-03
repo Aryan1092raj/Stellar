@@ -15,5 +15,6 @@ COPY package.json package-lock.json* ./
 RUN npm install --production
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/prisma ./prisma
+RUN npx prisma generate
 EXPOSE 4000
-CMD ["node", "dist/server.js"]
+CMD npx prisma migrate deploy && node dist/server.js

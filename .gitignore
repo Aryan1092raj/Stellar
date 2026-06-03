@@ -37,3 +37,7 @@ npm-debug.log*
 
 # Test
 coverage/
+
+# Graphify generated output
+graphify-out/
+.graphify*.json

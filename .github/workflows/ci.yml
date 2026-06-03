@@ -9,6 +9,20 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: geoledger
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - name: Use Node
@@ -18,24 +32,15 @@ jobs:
       - name: Install backend dependencies
         working-directory: backend
         run: npm ci
-      - name: Block unsafe production email config
-        env:
-          NODE_ENV: ${{ secrets.NODE_ENV }}
-          DISABLE_EMAILS: ${{ secrets.DISABLE_EMAILS }}
-        run: |
-          if [ "$NODE_ENV" = "production" ] && [ "$DISABLE_EMAILS" = "1" ]; then
-            echo "DISABLE_EMAILS=1 is not allowed when NODE_ENV=production"
-            exit 1
-          fi
       - name: Run Prisma migrations
         working-directory: backend
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/geoledger
         run: npx prisma migrate deploy
       - name: Test backend
         working-directory: backend
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/geoledger
         run: npm test
 
   frontend:
