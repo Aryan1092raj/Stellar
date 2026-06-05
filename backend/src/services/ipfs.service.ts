@@ -1,12 +1,13 @@
 import axios from 'axios';
 import FormData from 'form-data';
 import fs from 'fs';
+import { config } from '../config/env';
 
 const PINATA_BASE_URL = 'https://api.pinata.cloud';
 
 function getPinataConfig() {
-  const apiKey = process.env.PINATA_API_KEY || process.env.IPFS_PINATA_API_KEY;
-  const secretKey = process.env.PINATA_SECRET_KEY || process.env.IPFS_PINATA_SECRET;
+  const apiKey = config.PINATA_API_KEY || config.IPFS_PINATA_API_KEY;
+  const secretKey = config.PINATA_SECRET_KEY || config.IPFS_PINATA_SECRET;
 
   if (!apiKey || !secretKey) {
     throw new Error('Pinata not configured. Set PINATA_API_KEY and PINATA_SECRET_KEY');

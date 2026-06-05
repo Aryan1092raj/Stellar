@@ -6,6 +6,17 @@ import { listDonations, Donation } from '../lib/api/client';
 import 'leaflet/dist/leaflet.css';
 import { useMapEvents } from 'react-leaflet';
 
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+const TILE_CONFIG = MAPBOX_TOKEN
+  ? {
+      url: `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`,
+      attribution: '&copy; Mapbox &copy; OpenStreetMap',
+    }
+  : {
+      url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      attribution: '&copy; OpenStreetMap contributors',
+    };
+
 export default function Map({ onSelect }: { onSelect?: (latlng: { lat: number; lng: number }) => void }) {
   const [donations, setDonations] = useState<Donation[]>([]);
   
@@ -41,7 +52,7 @@ export default function Map({ onSelect }: { onSelect?: (latlng: { lat: number; l
   
   return (
     <MapContainer center={[20, 0]} zoom={2} style={{ height: '100%', width: '100%' }} zoomControl={true}>
-      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+      <TileLayer url={TILE_CONFIG.url} attribution={TILE_CONFIG.attribution} />
       <MapUpdater />
       <ClickCapture />
       {donations.filter(d => typeof d.donor_lat === 'number' && typeof d.donor_lng === 'number').map(d => (

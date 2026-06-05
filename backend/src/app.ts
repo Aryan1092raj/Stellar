@@ -46,6 +46,15 @@ app.get('/health', async (_req, res) => {
   }
 });
 
+app.get('/', (_req, res) => {
+  res.json({
+    name: 'GeoLedger API',
+    status: 'running',
+    health: '/health',
+    api: ['/api/ngos', '/api/projects', '/api/donations'],
+  });
+});
+
 // API routes
 app.use("/api", routes);
 

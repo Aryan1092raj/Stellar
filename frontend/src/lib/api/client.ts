@@ -51,19 +51,36 @@ async function listFallbackNGOs(): Promise<NGOItem[]> {
   return Array.isArray(data) ? data : [];
 }
 
+function mergeNGOs(primary: NGOItem[], fallback: NGOItem[]) {
+  const merged = new Map<string, NGOItem>();
+
+  for (const ngo of fallback) {
+    merged.set(ngo.source_id || ngo.name.toLowerCase(), ngo);
+  }
+
+  for (const ngo of primary) {
+    merged.set(ngo.source_id || ngo.name.toLowerCase(), ngo);
+  }
+
+  return Array.from(merged.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export async function listNGOs(): Promise<NGOItem[]> {
+  let backend: NGOItem[] = [];
+
   try {
     const res = await fetch(`${API_BASE}/api/ngos`);
     if (res.ok) {
       const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) return data;
+      if (Array.isArray(data)) backend = data;
     }
   } catch {
     // The static curated list keeps local demos usable when the backend is offline.
   }
 
   const fallback = await listFallbackNGOs();
-  if (fallback.length > 0) return fallback;
+  const merged = mergeNGOs(backend, fallback);
+  if (merged.length > 0) return merged;
   throw new Error('ngos-list-failed');
 }
 
