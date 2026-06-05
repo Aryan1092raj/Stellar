@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from 'react';
+import { listDonations, type Donation } from '../lib/api/client';
 import Modal from './Modal';
 
 interface NGO {
@@ -8,14 +9,6 @@ interface NGO {
   wallet_address: string;
   sector?: string | null;
   verification_status: string;
-}
-
-interface Donation {
-  id: number;
-  amount: number;
-  status: string;
-  created_at: string;
-  evidence_url?: string;
 }
 
 interface WorkUpdate {
@@ -48,44 +41,36 @@ export default function NGODetailsModal({ ngo, open, onClose }: Props) {
     setLoading(true);
     try {
       // Fetch all donations
-      const res = await fetch('/api/donations', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
-      });
-      if (res.ok) {
-        const allDonations = await res.json();
-        const ngoDonations = allDonations.filter((d: Donation) => d.status !== 'failed');
-        setDonations(ngoDonations);
+      const allDonations = await listDonations();
+      const ngoDonations = allDonations.filter((d) => d.ngo_id === ngo.id && d.status !== 'failed');
+      setDonations(ngoDonations);
 
-        // Parse evidence URLs to get work updates
-        const updates: { [key: number]: WorkUpdate } = {};
-        for (const donation of ngoDonations) {
-          if (donation.evidence_url) {
-            try {
-              // In a real app, fetch from IPFS
-              // For now, we'll parse if it's JSON
-              const evidenceRes = await fetch(donation.evidence_url);
-              if (evidenceRes.ok) {
-                const text = await evidenceRes.text();
-                try {
-                  const parsed = JSON.parse(text);
-                  updates[donation.id] = parsed;
-                } catch {
-                  // If not JSON, treat as plain text
-                  updates[donation.id] = {
-                    title: 'Work Update',
-                    description: text,
-                    progress_percentage: 100,
-                    timestamp: donation.created_at,
-                  };
-                }
+      // Parse evidence URLs to get work updates
+      const updates: { [key: number]: WorkUpdate } = {};
+      for (const donation of ngoDonations) {
+        if (donation.evidence_url) {
+          try {
+            const evidenceRes = await fetch(donation.evidence_url);
+            if (evidenceRes.ok) {
+              const text = await evidenceRes.text();
+              try {
+                const parsed = JSON.parse(text);
+                updates[donation.id] = parsed;
+              } catch {
+                updates[donation.id] = {
+                  title: 'Work Update',
+                  description: text,
+                  progress_percentage: 100,
+                  timestamp: donation.created_at,
+                };
               }
-            } catch (err) {
-              console.error('Failed to fetch evidence:', err);
             }
+          } catch (err) {
+            console.error('Failed to fetch evidence:', err);
           }
         }
-        setWorkUpdates(updates);
       }
+      setWorkUpdates(updates);
     } catch (err) {
       console.error('Failed to load NGO data:', err);
     } finally {

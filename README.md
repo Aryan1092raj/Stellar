@@ -183,7 +183,7 @@ npm test
 - Legacy demo wallet API endpoints are retired; current wallet flow is handled through real wallet integration in the frontend donation/auth paths.
 - Legacy Firebase hosting config and Firestore exports were removed from the deploy path. Firebase is still used through configured auth credentials where required.
 - The root-level `start.sh` script exists for local startup orchestration.
-- Additional docs: `WORKFLOW.md`, `DOCUMENTATION.md`, `DEPLOY.md`, `QUICKREF.txt`.
+- Additional docs: `WORKFLOW.md`, `UI_INTEGRATION.md`, `DOCUMENTATION.md`, `DEPLOY.md`, `QUICKREF.txt`.
 
 ## License
 

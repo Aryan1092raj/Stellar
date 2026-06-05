@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { authFetch } from "../lib/auth";
+import { confirmEvidence, prepareEvidence } from "../lib/api/client";
 import { submitTx } from "../lib/stellar";
 import { useFreighter } from "../hooks/useFreighter";
 
@@ -27,39 +27,13 @@ export default function EvidenceUpload() {
       form.append("file", file);
       form.append("donation_id", donationId);
 
-      const res = await authFetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/evidence/prepare`,
-        {
-          method: "POST",
-          body: form,
-        }
-      );
-
-      const data = await res.json();
-
-      if (!res.ok || !data.ipfsCid || !data.xdr) {
-        throw new Error(data?.error || "Evidence preparation failed");
-      }
+      const data = await prepareEvidence(form);
+      if (!data.ipfsCid || !data.xdr) throw new Error("Evidence preparation failed");
 
       const signedXdr = await sign(data.xdr);
       const confirmedTxHash = await submitTx(signedXdr);
 
-      const confirmRes = await authFetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/evidence/confirm`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            donationId,
-            ipfsCid: data.ipfsCid,
-            txHash: confirmedTxHash,
-          }),
-        }
-      );
-
-      if (!confirmRes.ok) {
-        const confirmData = await confirmRes.json();
-        throw new Error(confirmData?.error || "Evidence confirmation failed");
-      }
+      await confirmEvidence({ donationId, ipfsCid: data.ipfsCid, txHash: confirmedTxHash });
 
       setCid(data.ipfsCid);
       setTxHash(confirmedTxHash);

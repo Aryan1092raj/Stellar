@@ -1,6 +1,17 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { authFetch, getRole } from '../lib/auth';
+import {
+  confirmEvidence,
+  confirmImpactVerification,
+  createProject,
+  listDonations,
+  listProjects,
+  prepareEvidence,
+  prepareImpactVerification,
+  type Donation,
+  type ProjectItem,
+} from '../lib/api/client';
+import { getRole } from '../lib/auth';
 import { submitTx } from '../lib/stellar';
 import { useFreighter } from '../hooks/useFreighter';
 import {
@@ -9,19 +20,6 @@ import {
   saveStoredWorkUpdate,
   StoredWorkUpdate,
 } from '../lib/workUpdates';
-
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || '';
-
-interface Donation {
-  id: number;
-  donor_public_key: string;
-  amount: number;
-  status: string;
-  created_at: string;
-  evidence_url?: string;
-  ngo_id: number;
-  project_id?: number | null;
-}
 
 interface WorkUpdate {
   id?: number;
@@ -33,17 +31,7 @@ interface WorkUpdate {
   created_at?: string;
 }
 
-interface CampaignProject {
-  id: number;
-  name: string;
-  description?: string | null;
-  ngo_id: number;
-  target_amount?: number | null;
-  sector?: string | null;
-  cover_image_url?: string | null;
-  deadline?: string | null;
-  created_at?: string;
-}
+type CampaignProject = ProjectItem;
 
 type CampaignForm = {
   title: string;
@@ -91,20 +79,13 @@ export default function NGODashboard() {
   useEffect(() => {
     async function loadDonations() {
       try {
-        const res = await fetch(`${API_BASE}/api/donations`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-          },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setDonations(data);
-          const total = data.reduce((sum: number, d: Donation) => sum + parseFloat(d.amount.toString()), 0);
-          setTotalReceived(total);
-          const inferredNgoId = data.find((donation: Donation) => donation.ngo_id)?.ngo_id;
-          if (inferredNgoId) {
-            setCampaignForm((current) => current.ngo_id ? current : { ...current, ngo_id: String(inferredNgoId) });
-          }
+        const data = await listDonations();
+        setDonations(data);
+        const total = data.reduce((sum: number, d: Donation) => sum + parseFloat(d.amount.toString()), 0);
+        setTotalReceived(total);
+        const inferredNgoId = data.find((donation: Donation) => donation.ngo_id)?.ngo_id;
+        if (inferredNgoId) {
+          setCampaignForm((current) => current.ngo_id ? current : { ...current, ngo_id: String(inferredNgoId) });
         }
       } catch (err) {
         console.error('Failed to load donations:', err);
@@ -120,8 +101,7 @@ export default function NGODashboard() {
   useEffect(() => {
     async function loadCampaigns() {
       try {
-        const res = await fetch(`${API_BASE}/api/projects`);
-        if (res.ok) setCampaigns(await res.json());
+        setCampaigns(await listProjects());
       } catch (err) {
         console.error('Failed to load campaigns:', err);
       }
@@ -150,22 +130,16 @@ export default function NGODashboard() {
       const walletPublicKey = publicKey || await connect();
       if (!walletPublicKey) throw new Error('Connect Freighter before creating a campaign');
 
-      const res = await authFetch(`${API_BASE}/api/projects`, {
-        method: 'POST',
-        body: JSON.stringify({
-          name: campaignForm.title,
-          description: campaignForm.description,
-          ngo_id: ngoId,
-          wallet_address: walletPublicKey,
-          target_amount: targetAmount,
-          sector: campaignForm.sector || undefined,
-          cover_image_url: campaignForm.cover_image_url || undefined,
-          deadline: campaignForm.deadline || undefined,
-        }),
+      const created = await createProject({
+        name: campaignForm.title,
+        description: campaignForm.description,
+        ngo_id: ngoId,
+        target_amount: targetAmount,
+        sector: campaignForm.sector || undefined,
+        cover_image_url: campaignForm.cover_image_url || undefined,
+        deadline: campaignForm.deadline || undefined,
       });
 
-      if (!res.ok) throw new Error('Campaign could not be created');
-      const created = await res.json();
       setCampaigns((current) => [created, ...current.filter((item) => item.id !== created.id)]);
       setCampaignForm({
         title: '',
@@ -195,73 +169,38 @@ export default function NGODashboard() {
       const walletPublicKey = publicKey || await connect();
       if (!walletPublicKey) throw new Error('Connect Freighter before signing');
 
-      const res = await fetch(`${API_BASE}/api/evidence/prepare`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: (() => {
-          const form = new FormData();
-          const blob = new Blob([JSON.stringify({
-            title: newUpdate.title,
-            description: newUpdate.description,
-            image_url: newUpdate.image_url,
-            progress_percentage: newUpdate.progress_percentage,
-            timestamp: new Date().toISOString(),
-          })], { type: 'application/json' });
-          form.append('file', blob, 'update.json');
-          form.append('donation_id', String(newUpdate.donation_id));
-          return form;
-        })(),
-      });
-
-      if (!res.ok) throw new Error('Evidence preparation failed');
+      const form = new FormData();
+      const blob = new Blob([JSON.stringify({
+        title: newUpdate.title,
+        description: newUpdate.description,
+        image_url: newUpdate.image_url,
+        progress_percentage: newUpdate.progress_percentage,
+        timestamp: new Date().toISOString(),
+      })], { type: 'application/json' });
+      form.append('file', blob, 'update.json');
+      form.append('donation_id', String(newUpdate.donation_id));
       
-      const evidenceData = await res.json();
+      const evidenceData = await prepareEvidence(form);
       if (!evidenceData.xdr || !evidenceData.ipfsCid) throw new Error('Evidence preparation did not return XDR');
 
       const signedEvidenceXdr = await sign(evidenceData.xdr);
       const evidenceTxHash = await submitTx(signedEvidenceXdr);
 
-      const evidenceConfirmRes = await fetch(`${API_BASE}/api/evidence/confirm`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({
-          donationId: newUpdate.donation_id,
-          ipfsCid: evidenceData.ipfsCid,
-          txHash: evidenceTxHash,
-        }),
+      await confirmEvidence({
+        donationId: newUpdate.donation_id,
+        ipfsCid: evidenceData.ipfsCid,
+        txHash: evidenceTxHash,
       });
 
-      if (!evidenceConfirmRes.ok) throw new Error('Evidence confirmation failed');
-
-      const verifyPrepareRes = await fetch(`${API_BASE}/api/donations/${newUpdate.donation_id}/verify/prepare`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-
-      if (!verifyPrepareRes.ok) throw new Error('Impact verification preparation failed');
-      const verifyPrepare = await verifyPrepareRes.json();
+      const verifyPrepare = await prepareImpactVerification(newUpdate.donation_id);
       if (!verifyPrepare.xdr) throw new Error('Impact verification preparation did not return XDR');
 
       const signedVerifyXdr = await sign(verifyPrepare.xdr);
       const verifyTxHash = await submitTx(signedVerifyXdr);
 
-      const verifyConfirmRes = await fetch(`${API_BASE}/api/donations/${newUpdate.donation_id}/verify/confirm`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({ txHash: verifyTxHash }),
-      });
+      await confirmImpactVerification(newUpdate.donation_id, verifyTxHash);
 
-      if (verifyConfirmRes.ok) {
+      {
         const postedAt = new Date().toISOString();
         const donation = donations.find((item) => item.id === newUpdate.donation_id);
         const postedUpdate: StoredWorkUpdate = {
@@ -292,17 +231,9 @@ export default function NGODashboard() {
         setSelectedDonation(null);
         
         // Reload donations
-        const reloadRes = await fetch(`${API_BASE}/api/donations`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        });
-        if (reloadRes.ok) {
-          const data = await reloadRes.json();
-          setDonations(data);
-        }
+        setDonations(await listDonations());
 
         setTimeout(() => setUploadStatus('idle'), 3000);
-      } else {
-        setUploadStatus('error');
       }
     } catch {
       setUploadStatus('error');

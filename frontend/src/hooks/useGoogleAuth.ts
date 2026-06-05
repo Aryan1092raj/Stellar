@@ -1,10 +1,9 @@
 import { useState } from 'react';
+import { apiRoutes } from '../lib/api/routes';
 import { saveSession } from '../lib/auth';
 import { signInWithGoogle } from '../lib/firebase';
 
 type Role = 'donor' | 'ngo';
-
-const API = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export function useGoogleAuth(role: Role = 'donor') {
   const [loading, setLoading] = useState(false);
@@ -16,7 +15,7 @@ export function useGoogleAuth(role: Role = 'donor') {
 
     try {
       const idToken = await signInWithGoogle();
-      const res = await fetch(`${API}/api/auth/google`, {
+      const res = await fetch(apiRoutes.auth.google, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idToken, role }),

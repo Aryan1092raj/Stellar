@@ -1,18 +1,18 @@
 "use client";
 import { FormEvent, useState, useEffect } from 'react';
 import { z } from 'zod';
-import { getRole } from '../lib/auth';
+import { createProject, listProjects, ProjectItem } from '../lib/api/client';
 
 const projectSchema = z.object({ name: z.string().min(2), ngo_id: z.number(), description: z.string().optional() });
 
 export default function ProjectSection() {
-  const [projects, setProjects] = useState<Array<{ id: number; name: string; ngo_id: number }>>([]);
+  const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [form, setForm] = useState({ name: '', ngo_id: '', description: '' });
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
   async function load() {
-    try { const res = await fetch('/api/projects'); if (res.ok) setProjects(await res.json()); } catch {}
+    try { setProjects(await listProjects()); } catch {}
   }
   useEffect(() => { load(); const id = setInterval(load, 15000); return () => clearInterval(id); }, []);
 
@@ -22,9 +22,9 @@ export default function ProjectSection() {
     if (!parsed.success) { setErrors(parsed.error.issues.map(i => i.message)); return; }
     setErrors([]); setLoading(true);
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('geoledger_token') : null;
-      const res = await fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }, body: JSON.stringify(parsed.data) });
-      if (!res.ok) setErrors(['failed']); else { setForm({ name: '', ngo_id: '', description: '' }); load(); }
+      await createProject(parsed.data);
+      setForm({ name: '', ngo_id: '', description: '' });
+      load();
     } catch { setErrors(['network']); }
     finally { setLoading(false); }
   }

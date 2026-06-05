@@ -1,9 +1,9 @@
-const API = process.env.NEXT_PUBLIC_BACKEND_URL;
+import { apiRoutes } from './api/routes';
 
 // ===== OTP FLOW =====
 
 export async function sendOtp(email: string) {
-  const res = await fetch(`${API}/api/otp/send`, {
+  const res = await fetch(apiRoutes.otp.send, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
@@ -18,7 +18,7 @@ export async function sendOtp(email: string) {
 }
 
 export async function verifyOtp(email: string, otp: string, role: string) {
-  const res = await fetch(`${API}/api/otp/verify`, {
+  const res = await fetch(apiRoutes.otp.verify, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, code: otp, role }),

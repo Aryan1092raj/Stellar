@@ -83,3 +83,7 @@ Production Checks
 Retired
 -------
 /api/demo/*, /api/voice-agent/*, and /api/impact/* are removed. Use the real wallet, chat, evidence, and donation verification flows above.
+
+New UI Work
+-----------
+Read UI_INTEGRATION.md before replacing frontend screens. Keep backend paths centralized in frontend/src/lib/api/routes.ts and API calls in frontend/src/lib/api/client.ts.

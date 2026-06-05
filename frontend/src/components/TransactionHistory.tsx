@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from 'react';
+import { listDonations } from '../lib/api/client';
 import { loadWalletInfo } from '../lib/stellar/wallet';
 
 interface Transaction {
@@ -82,10 +83,7 @@ export default function TransactionHistory() {
       const data = await response.json() as HorizonPaymentsResponse;
       
       // Also fetch our donation records
-      const donationsRes = await fetch('/api/donations', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
-      });
-      const donations = donationsRes.ok ? await donationsRes.json() as DonationApiRecord[] : [];
+      const donations = await listDonations().catch(() => [] as DonationApiRecord[]);
 
       // Transform and combine data
       const stellarTxs: Transaction[] = (data._embedded?.records || [])

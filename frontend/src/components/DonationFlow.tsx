@@ -1,10 +1,10 @@
 'use client';
 import { useMemo, useState, useEffect } from 'react';
 import TransactionModal from './TransactionModal';
-import { authFetch } from '../lib/auth';
 import { buildDonationTx, submitTx } from '../lib/stellar';
 import { useFreighter } from '../hooks/useFreighter';
-import { listNGOs, NGOItem } from '../lib/api/client';
+import { confirmDonation, listNGOs, NGOItem } from '../lib/api/client';
+import { apiRoutes } from '../lib/api/routes';
 import DonorFeed from './DonorFeed';
 import { latestWorkUpdateForNGO, StoredWorkUpdate } from '../lib/workUpdates';
 
@@ -103,26 +103,14 @@ export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { la
       setTxHash(confirmedTxHash);
 
       // ✅ 3. Persist OFF-CHAIN using SECURE AUTH FETCH
-      const res = await authFetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/donations/confirm`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            donor_public_key: walletPublicKey,
-            amount: amountXLM,
-            ngo_id: ngoId,
-            project_id: projectId ?? undefined,
-            donor_location: selectedLatLng,
-            txHash: confirmedTxHash,
-          }),
-        }
-      );
-
-      if (!res.ok) {
-        throw new Error('Backend rejected donation confirmation');
-      }
-
-      const savedDonation = await res.json();
+      const savedDonation = await confirmDonation({
+        donor_public_key: walletPublicKey,
+        amount: amountXLM,
+        ngo_id: ngoId,
+        project_id: projectId ?? undefined,
+        donor_location: selectedLatLng,
+        txHash: confirmedTxHash,
+      });
       setDonationReceipt({
         donationId: savedDonation.id,
         amount: amountXLM,
@@ -198,9 +186,7 @@ export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { la
     async function loadRate() {
       try {
         // CoinGecko free API — no key needed
-        const res = await fetch(
-          'https://api.coingecko.com/api/v3/simple/price?ids=stellar&vs_currencies=inr'
-        );
+        const res = await fetch(apiRoutes.external.stellarPriceInr);
         if (!res.ok) return;
         const data = await res.json();
         const rate = Number(data?.stellar?.inr);

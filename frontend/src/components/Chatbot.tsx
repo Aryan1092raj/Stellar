@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { getChatSuggestions, sendChatMessage } from '../lib/api/client';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -31,10 +32,8 @@ export default function Chatbot() {
   // Load suggestions
   useEffect(() => {
     if (isOpen && suggestions.length === 0) {
-      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-      fetch(`${API_URL}/api/chat/suggestions`)
-        .then(res => res.json())
-        .then(data => setSuggestions(data.suggestions))
+      getChatSuggestions()
+        .then(setSuggestions)
         .catch(err => console.error('Failed to load suggestions:', err));
     }
   }, [isOpen]);
@@ -60,20 +59,10 @@ export default function Chatbot() {
     setIsLoading(true);
 
     try {
-      const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
-      const response = await fetch(`${API_URL}/api/chat/message`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: content,
-          conversationHistory: messages.map(msg => ({
-            role: msg.role === 'user' ? 'user' : 'assistant',
-            content: msg.content,
-          })),
-        }),
-      });
-
-      const data = await response.json();
+      const data = await sendChatMessage(content, messages.map(msg => ({
+        role: msg.role === 'user' ? 'user' : 'assistant',
+        content: msg.content,
+      })));
 
       const assistantMessage: Message = {
         role: 'assistant',
