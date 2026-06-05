@@ -1,281 +1,199 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
+import { useWallet } from "@/contexts/WalletContext";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
-  connectWallet, 
-  disconnectWallet, 
+  connectWallet,
   hasFreighter,
   hasXBull,
   hasAlbedo,
-  loadWalletInfo, 
-  saveWalletInfo,
-  getWalletBalance,
   WalletType,
-  WalletInfo,
-  STELLAR_NETWORK 
-} from '../lib/stellar/wallet';
-import {
-  formatFreighterUnavailableMessage,
-  getFreighterDiagnostics,
-} from '../lib/freighter';
-import Modal from './Modal';
+  STELLAR_NETWORK,
+} from "@/lib/stellar/wallet";
+import { Wallet, LogOut, Copy, Check, Info } from "lucide-react";
 
 export default function WalletStatus() {
-  const [connected, setConnected] = useState(false);
-  const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null);
-  const [balance, setBalance] = useState<string>('0');
+  const { connected, walletInfo, balance, setWalletInfo, disconnect } = useWallet();
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [availableWallets, setAvailableWallets] = useState<WalletType[]>([]);
   const [connecting, setConnecting] = useState(false);
-  const [error, setError] = useState<string>('');
-  const [freighterHint, setFreighterHint] = useState<string>('');
+  const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
 
-  // Load saved wallet on mount
   useEffect(() => {
-    const saved = loadWalletInfo();
-    if (saved) {
-      setWalletInfo(saved);
-      setConnected(true);
-      loadBalance(saved.publicKey);
-    }
-
     (async () => {
-      const freighterAvailable = await hasFreighter();
       const wallets: WalletType[] = [];
-      if (freighterAvailable) wallets.push('freighter');
-      if (!freighterAvailable) {
-        const diagnostics = await getFreighterDiagnostics();
-        setFreighterHint(formatFreighterUnavailableMessage(diagnostics));
-      } else {
-        setFreighterHint('');
-      }
-      if (hasXBull()) wallets.push('xbull');
-      if (hasAlbedo()) wallets.push('albedo');
+      if (await hasFreighter()) wallets.push("freighter");
+      if (hasXBull()) wallets.push("xbull");
+      if (hasAlbedo()) wallets.push("albedo");
       setAvailableWallets(wallets);
     })();
   }, []);
 
-  // Refresh balance periodically
-  useEffect(() => {
-    if (connected && walletInfo) {
-      const interval = setInterval(() => {
-        loadBalance(walletInfo.publicKey);
-      }, 30000); // Every 30 seconds
-      return () => clearInterval(interval);
-    }
-  }, [connected, walletInfo]);
-
-  async function loadBalance(publicKey: string) {
-    try {
-      const bal = await getWalletBalance(publicKey);
-      setBalance(bal);
-    } catch (err) {
-      console.error('Failed to load balance:', err);
-    }
-  }
-
   async function handleConnect(type: WalletType) {
     setConnecting(true);
-    setError('');
-    
+    setError("");
     try {
       const info = await connectWallet(type);
       setWalletInfo(info);
-      setConnected(true);
-      saveWalletInfo(info);
       setShowWalletModal(false);
-      await loadBalance(info.publicKey);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to connect wallet');
-      console.error('Wallet connection error:', err);
+    } catch (err: any) {
+      setError(err.message || "Failed to connect wallet");
+      console.error(err);
     } finally {
       setConnecting(false);
     }
   }
 
-  function handleDisconnect() {
-    disconnectWallet();
-    setWalletInfo(null);
-    setConnected(false);
-    setBalance('0');
-  }
-
-  function openWalletSelector() {
-    setError('');
-    setShowWalletModal(true);
-  }
-
-  const getWalletIcon = (type: WalletType) => {
-    switch (type) {
-      case 'freighter': return '🚀';
-      case 'xbull': return '🐂';
-      case 'albedo': return '⭐';
-      case 'lobstr': return '🦞';
-      default: return '👛';
+  const handleCopy = () => {
+    if (walletInfo?.publicKey) {
+      navigator.clipboard.writeText(walletInfo.publicKey);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
-  const getWalletName = (type: WalletType) => {
-    return type.charAt(0).toUpperCase() + type.slice(1);
+  const getWalletIcon = (type: WalletType) => {
+    switch (type) {
+      case "freighter": return "🚀";
+      case "xbull": return "🐂";
+      case "albedo": return "⭐";
+      default: return "👛";
+    }
   };
 
   return (
     <>
-      <div className="wallet-section">
-        {!connected ? (
-          <div className="wallet-disconnected">
-            <div className="wallet-status-header">
-              <div className="wallet-icon">👛</div>
-              <div className="wallet-text">
-                <div className="wallet-label">Wallet Status</div>
-                <div className="wallet-value">Not Connected</div>
+      <Card className="w-full shadow-soft border border-hairline overflow-hidden">
+        <CardContent className="p-5">
+          {!connected ? (
+            <div className="flex flex-col space-y-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-surface-strong text-muted rounded-full">
+                  <Wallet className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-ink">Stellar Wallet</h4>
+                  <p className="text-xs text-muted">Not connected</p>
+                </div>
+              </div>
+              <Button onClick={() => setShowWalletModal(true)} className="w-full flex items-center justify-center space-x-2">
+                <Wallet className="h-4 w-4" />
+                <span>Connect Wallet</span>
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <span className="text-lg">{getWalletIcon(walletInfo!.type)}</span>
+                  <span className="text-sm font-bold text-ink capitalize">{walletInfo!.type}</span>
+                </div>
+                <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                  {STELLAR_NETWORK}
+                </Badge>
+              </div>
+
+              <div className="flex items-center justify-between bg-surface-soft p-3 rounded-lg border border-hairline-soft">
+                <div className="flex flex-col space-y-0.5">
+                  <span className="text-[10px] text-muted font-bold uppercase tracking-wider">Address</span>
+                  <span className="font-mono text-xs text-ink truncate max-w-[150px]" title={walletInfo!.publicKey}>
+                    {walletInfo!.publicKey}
+                  </span>
+                </div>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted hover:text-ink shrink-0" onClick={handleCopy}>
+                  {copied ? <Check className="h-3.5 w-3.5 text-semantic-up" /> : <Copy className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-between border-t border-hairline pt-3">
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-muted font-bold uppercase tracking-wider">Balance</span>
+                  <span className="font-mono text-lg font-semibold text-ink">
+                    {parseFloat(balance).toFixed(2)} <span className="text-xs font-semibold text-muted">XLM</span>
+                  </span>
+                </div>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-semantic-down hover:bg-semantic-down/5 rounded-full" onClick={disconnect}>
+                  <LogOut className="h-4 w-4" />
+                </Button>
               </div>
             </div>
-            <button className="connect-wallet-btn" onClick={openWalletSelector}>
-              <span className="btn-icon">🔗</span>
-              <span>Connect Wallet</span>
-            </button>
-            {availableWallets.length === 0 && (
-              <div className="wallet-hint">
-                ℹ️ {freighterHint || <>Install or enable <a href="https://www.freighter.app/" target="_blank" rel="noopener noreferrer">Freighter</a> for this site to connect</>}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="wallet-connected">
-            <div className="wallet-info-card">
-              <div className="wallet-header-row">
-                <div className="wallet-type-badge">
-                  <span className="wallet-type-icon">{getWalletIcon(walletInfo!.type)}</span>
-                  <span className="wallet-type-name">{getWalletName(walletInfo!.type)}</span>
-                </div>
-                <div className="network-badge">{STELLAR_NETWORK}</div>
-              </div>
-              
-              <div className="wallet-address-row">
-                <div className="address-label">Address</div>
-                <div className="address-value" title={walletInfo!.publicKey}>
-                  {walletInfo!.publicKey.slice(0, 6)}...{walletInfo!.publicKey.slice(-6)}
-                </div>
-                <button 
-                  className="copy-address-btn"
-                  onClick={() => {
-                    navigator.clipboard.writeText(walletInfo!.publicKey);
-                  }}
-                  title="Copy address"
-                >
-                  📋
-                </button>
-              </div>
+          )}
+        </CardContent>
+      </Card>
 
-              <div className="wallet-balance-row">
-                <div className="balance-label">Balance</div>
-                <div className="balance-value">
-                  <span className="balance-amount">{parseFloat(balance).toFixed(2)}</span>
-                  <span className="balance-currency">XLM</span>
-                </div>
-              </div>
+      <Dialog open={showWalletModal} onOpenChange={setShowWalletModal}>
+        <DialogContent className="max-w-md p-6">
+          <DialogHeader>
+            <DialogTitle>Connect Wallet</DialogTitle>
+          </DialogHeader>
 
-              <button className="disconnect-wallet-btn" onClick={handleDisconnect}>
-                <span className="btn-icon">🔌</span>
-                <span>Disconnect</span>
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Wallet Selector Modal */}
-      <Modal 
-        open={showWalletModal} 
-        onClose={() => setShowWalletModal(false)} 
-        title="Connect Wallet"
-      >
-        <div className="wallet-selector">
-          <p className="wallet-selector-intro">
-            Choose a wallet to connect to GeoLedger. Make sure you have one installed.
+          <p className="text-sm text-body">
+            Choose a wallet to connect to GeoLedger. Make sure you have the wallet extension installed.
           </p>
 
           {error && (
-            <div className="wallet-error-message">
-              <span className="error-icon">❌</span>
-              <span>{error}</span>
+            <div className="text-xs text-semantic-down font-semibold bg-semantic-down/5 border border-semantic-down/20 p-3 rounded-lg">
+              {error}
             </div>
           )}
 
-          <div className="wallet-options">
-            {/* Freighter */}
-            <button
-              className="wallet-option"
-              onClick={() => handleConnect('freighter')}
+          <div className="grid gap-3 py-2">
+            <Button
+              variant="outline"
+              className="justify-between h-14 rounded-xl border border-hairline p-4 text-left font-sans text-md font-semibold text-ink"
+              onClick={() => handleConnect("freighter")}
               disabled={connecting}
             >
-              <div className="wallet-option-icon">🚀</div>
-              <div className="wallet-option-content">
-                <div className="wallet-option-name">Freighter</div>
-                <div className="wallet-option-desc">
-                  {availableWallets.includes('freighter') 
-                    ? 'Most popular Stellar wallet' 
-                    : 'Click to connect'}
-                </div>
-              </div>
-              {availableWallets.includes('freighter') && (
-                <div className="wallet-option-arrow">→</div>
-              )}
-            </button>
+              <span className="flex items-center space-x-3">
+                <span className="text-xl">🚀</span>
+                <span>Freighter</span>
+              </span>
+              <span className="text-xs text-muted">
+                {availableWallets.includes("freighter") ? "Detected" : "Not installed"}
+              </span>
+            </Button>
 
-            {/* xBull */}
-            <button
-              className="wallet-option"
-              onClick={() => handleConnect('xbull')}
-              disabled={connecting || !availableWallets.includes('xbull')}
+            <Button
+              variant="outline"
+              className="justify-between h-14 rounded-xl border border-hairline p-4 text-left font-sans text-md font-semibold text-ink"
+              onClick={() => handleConnect("xbull")}
+              disabled={connecting || !availableWallets.includes("xbull")}
             >
-              <div className="wallet-option-icon">🐂</div>
-              <div className="wallet-option-content">
-                <div className="wallet-option-name">xBull</div>
-                <div className="wallet-option-desc">
-                  {availableWallets.includes('xbull') 
-                    ? 'Advanced Stellar wallet' 
-                    : 'Not installed'}
-                </div>
-              </div>
-              {availableWallets.includes('xbull') && (
-                <div className="wallet-option-arrow">→</div>
-              )}
-            </button>
+              <span className="flex items-center space-x-3">
+                <span className="text-xl">🐂</span>
+                <span>xBull Wallet</span>
+              </span>
+              <span className="text-xs text-muted">
+                {availableWallets.includes("xbull") ? "Detected" : "Not installed"}
+              </span>
+            </Button>
 
-            {/* Albedo */}
-            <button
-              className="wallet-option"
-              onClick={() => handleConnect('albedo')}
-              disabled={connecting || !availableWallets.includes('albedo')}
+            <Button
+              variant="outline"
+              className="justify-between h-14 rounded-xl border border-hairline p-4 text-left font-sans text-md font-semibold text-ink"
+              onClick={() => handleConnect("albedo")}
+              disabled={connecting || !availableWallets.includes("albedo")}
             >
-              <div className="wallet-option-icon">⭐</div>
-              <div className="wallet-option-content">
-                <div className="wallet-option-name">Albedo</div>
-                <div className="wallet-option-desc">
-                  {availableWallets.includes('albedo') 
-                    ? 'Web-based key management' 
-                    : 'Not available'}
-                </div>
-              </div>
-              {availableWallets.includes('albedo') && (
-                <div className="wallet-option-arrow">→</div>
-              )}
-            </button>
+              <span className="flex items-center space-x-3">
+                <span className="text-xl">⭐</span>
+                <span>Albedo</span>
+              </span>
+              <span className="text-xs text-muted">
+                {availableWallets.includes("albedo") ? "Detected" : "Not installed"}
+              </span>
+            </Button>
           </div>
 
-          {connecting && (
-            <div className="wallet-connecting">
-              <div className="spinner">⏳</div>
-              <p>Connecting to wallet...</p>
-            </div>
-          )}
-
-          <div className="wallet-selector-footer">
-            <p>New to Stellar? <a href="https://www.freighter.app/" target="_blank" rel="noopener noreferrer">Install Freighter</a></p>
+          <div className="text-xs text-muted text-center pt-2 flex items-center justify-center space-x-1">
+            <Info className="h-3 w-3" />
+            <span>New to Stellar? Install Freighter extension to get started.</span>
           </div>
-        </div>
-      </Modal>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

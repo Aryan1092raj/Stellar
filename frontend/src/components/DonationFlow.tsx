@@ -1,15 +1,21 @@
-'use client';
-import { useMemo, useState, useEffect } from 'react';
-import TransactionModal from './TransactionModal';
-import { buildDonationTx, submitTx } from '../lib/stellar';
-import { useFreighter } from '../hooks/useFreighter';
-import { confirmDonation, listNGOs, NGOItem } from '../lib/api/client';
-import { apiRoutes } from '../lib/api/routes';
-import DonorFeed from './DonorFeed';
-import { latestWorkUpdateForNGO, StoredWorkUpdate } from '../lib/workUpdates';
+"use client";
+import { useMemo, useState, useEffect } from "react";
+import TransactionModal from "./TransactionModal";
+import { buildDonationTx, submitTx } from "../lib/stellar";
+import { useFreighter } from "../hooks/useFreighter";
+import { confirmDonation, listNGOs, NGOItem } from "../lib/api/client";
+import { apiRoutes } from "../lib/api/routes";
+import DonorFeed from "./DonorFeed";
+import { latestWorkUpdateForNGO, StoredWorkUpdate } from "../lib/workUpdates";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { MapPin, Coins, Flame, Heart, HeartHandshake } from "lucide-react";
 
 const INR_PRESETS = [100, 500, 1000, 5000];
-const FALLBACK_INR_PER_XLM = 38; // ~₹38/XLM as of mid-2026 fallback
+const FALLBACK_INR_PER_XLM = 38;
 
 type SelectedNGODetail = {
   id: number;
@@ -32,25 +38,24 @@ type WorkUpdateEventDetail = {
 };
 
 function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'tx-error';
+  return error instanceof Error ? error.message : "Transaction failed";
 }
 
 function impactMessage(sector?: string | null) {
-  const normalized = (sector || '').toLowerCase();
-
-  if (normalized.includes('education')) {
-    return "Rs. 500 sponsors a child's education for one month";
+  const normalized = (sector || "").toLowerCase();
+  if (normalized.includes("education")) {
+    return "₹500 sponsors a child's education for one month";
   }
-  if (normalized.includes('health')) {
-    return 'Rs. 500 provides basic healthcare to 2 families';
+  if (normalized.includes("health")) {
+    return "₹500 provides basic healthcare to 2 families";
   }
-  if (normalized.includes('environment')) {
-    return 'Rs. 500 plants 10 trees';
+  if (normalized.includes("environment")) {
+    return "₹500 plants 10 trees";
   }
-  if (normalized.includes('child')) {
-    return 'Rs. 500 feeds 5 children for a week';
+  if (normalized.includes("child")) {
+    return "₹500 feeds 5 children for a week";
   }
-  return "Rs. 500 directly supports this NGO's mission";
+  return "₹500 directly supports this NGO's mission";
 }
 
 export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { lat: number; lng: number } }) {
@@ -60,7 +65,7 @@ export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { la
   const [projectId, setProjectId] = useState<number | null>(null);
   const [selectedNgo, setSelectedNgo] = useState<NGOItem | null>(null);
 
-  const [status, setStatus] = useState<'idle' | 'signing' | 'submitted' | 'confirmed' | 'error'>('idle');
+  const [status, setStatus] = useState<"idle" | "signing" | "submitted" | "confirmed" | "error">("idle");
   const [showModal, setShowModal] = useState(false);
   const [txHash, setTxHash] = useState<string | undefined>();
   const [error, setError] = useState<string | undefined>();
@@ -69,6 +74,7 @@ export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { la
 
   const [ngos, setNgos] = useState<NGOItem[]>([]);
   const { publicKey, connected, connect, sign } = useFreighter();
+  
   const amountXLM = useMemo(() => {
     return amountInr > 0 ? amountInr / inrPerXlm : 0;
   }, [amountInr, inrPerXlm]);
@@ -78,15 +84,11 @@ export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { la
     setError(undefined);
 
     try {
-      setStatus('signing');
-
-      // ✅ Enforce wallet connection (real donor identity)
+      setStatus("signing");
       const walletPublicKey = publicKey || (await connect());
+      if (!ngoId || !selectedNgo) throw new Error("Select an NGO first");
+      if (!selectedLatLng) throw new Error("Select your location on the map first");
 
-      if (!ngoId || !selectedNgo) throw new Error('Select an NGO first');
-      if (!selectedLatLng) throw new Error('Select your location on the map');
-
-      // ✅ 1. Build and sign the real Soroban transaction
       const xdr = await buildDonationTx({
         donorPublicKey: walletPublicKey,
         amountXLM,
@@ -97,12 +99,10 @@ export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { la
       });
       const signedXdr = await sign(xdr);
 
-      // ✅ 2. Submit ON-CHAIN FIRST (SOURCE OF TRUTH)
-      setStatus('submitted');
+      setStatus("submitted");
       const confirmedTxHash = await submitTx(signedXdr);
       setTxHash(confirmedTxHash);
 
-      // ✅ 3. Persist OFF-CHAIN using SECURE AUTH FETCH
       const savedDonation = await confirmDonation({
         donor_public_key: walletPublicKey,
         amount: amountXLM,
@@ -111,41 +111,41 @@ export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { la
         donor_location: selectedLatLng,
         txHash: confirmedTxHash,
       });
+      
       setDonationReceipt({
         donationId: savedDonation.id,
         amount: amountXLM,
         ngoName: selectedNgo.name,
         timestamp: savedDonation.created_at || new Date().toISOString(),
       });
-      setStatus('confirmed');
+      setStatus("confirmed");
     } catch (e: unknown) {
       console.error(e);
       setError(getErrorMessage(e));
-      setStatus('error');
+      setStatus("error");
     }
   };
 
   const submit = () => submitXlmWalletDonation();
 
-  // ✅ NGO selection from external UI
   useEffect(() => {
     function handler(e: Event) {
       const detail = (e as CustomEvent<SelectedNGODetail>).detail;
-      if (detail && typeof detail.id === 'number') {
+      if (detail && typeof detail.id === "number") {
         setNgoId(detail.id);
         const matched = ngos.find((ngo) => ngo.id === detail.id);
         setSelectedNgo(matched || {
           id: detail.id,
-          name: detail.name || 'Selected NGO',
+          name: detail.name || "Selected NGO",
           sector: detail.sector ?? null,
-          wallet_address: detail.wallet_address || '',
-          verification_status: 'verified',
+          wallet_address: detail.wallet_address || "",
+          verification_status: "verified",
         });
         if (detail.project_id) setProjectId(detail.project_id);
       }
     }
-    window.addEventListener('select-ngo', handler);
-    return () => window.removeEventListener('select-ngo', handler);
+    window.addEventListener("select-ngo", handler);
+    return () => window.removeEventListener("select-ngo", handler);
   }, [ngos]);
 
   useEffect(() => {
@@ -153,7 +153,6 @@ export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { la
       setLatestUpdate(null);
       return;
     }
-
     const selectedNgoId = selectedNgo.id;
     setLatestUpdate(latestWorkUpdateForNGO(selectedNgo.id));
 
@@ -164,11 +163,10 @@ export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { la
       }
     }
 
-    window.addEventListener('work-update-posted', handleWorkUpdate);
-    return () => window.removeEventListener('work-update-posted', handleWorkUpdate);
+    window.addEventListener("work-update-posted", handleWorkUpdate);
+    return () => window.removeEventListener("work-update-posted", handleWorkUpdate);
   }, [selectedNgo]);
 
-  // ✅ Load NGOs on mount
   useEffect(() => {
     (async () => {
       try {
@@ -182,10 +180,8 @@ export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { la
 
   useEffect(() => {
     let cancelled = false;
-
     async function loadRate() {
       try {
-        // CoinGecko free API — no key needed
         const res = await fetch(apiRoutes.external.stellarPriceInr);
         if (!res.ok) return;
         const data = await res.json();
@@ -197,7 +193,6 @@ export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { la
         // keep fallback
       }
     }
-
     loadRate();
     return () => {
       cancelled = true;
@@ -205,125 +200,183 @@ export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { la
   }, []);
 
   const ready = Boolean(ngoId && selectedNgo && amountXLM > 0 && selectedLatLng);
-  const processing = status === 'signing' || status === 'submitted';
+  const processing = status === "signing" || status === "submitted";
 
   return (
-    <div className="stack">
+    <div className="flex flex-col space-y-6">
       <DonorFeed />
-      <div className="section-header">
-        <div className="section-icon">💝</div>
-        <div>
-          <h3 className="section-title">Make a Donation</h3>
-          <p className="section-subtitle">Support verified NGOs with transparent blockchain donations</p>
-        </div>
-      </div>
 
-      <div className="donation-form">
-        {/* ✅ NGO SELECTION */}
-        <div className="form-group">
-          <label>
-            <span className="label-icon">🏢</span>
-            <span>Selected NGO</span>
-          </label>
-          <div className={`location-preview ${selectedNgo ? 'selected' : ''}`}>
-            {selectedNgo ? `Selected: ${selectedNgo.name}` : 'Choose an NGO from the NGO tab'}
-          </div>
-          {selectedNgo && <div className="form-hint">{impactMessage(selectedNgo.sector)}</div>}
-        </div>
-
-        {selectedNgo && latestUpdate && (
-          <div className="work-update-preview">
-            {latestUpdate.image_url && (
-              <img src={latestUpdate.image_url} alt="" />
-            )}
-            <div className="work-update-preview-body">
-              <div className="work-update-preview-topline">
-                <span>Latest work update</span>
-                <b>{latestUpdate.progress_percentage}%</b>
-              </div>
-              <h4>{latestUpdate.title}</h4>
-              <p>{latestUpdate.description}</p>
-              <div className="progress-bar-container">
-                <div className="progress-bar" style={{ width: `${Math.min(latestUpdate.progress_percentage, 100)}%` }}></div>
-              </div>
-              <small>Your donation unlocks when this NGO posts their next update.</small>
+      <Card className="shadow-soft border border-hairline">
+        <CardHeader className="pb-4 border-b border-hairline">
+          <div className="flex items-center space-x-3">
+            <div className="p-2.5 bg-primary/10 text-primary rounded-xl">
+              <HeartHandshake className="h-6 w-6" />
+            </div>
+            <div>
+              <CardTitle>Fund Verified Campaign</CardTitle>
+              <CardDescription>Support registered NGOs on-chain with instant geolocated settlement.</CardDescription>
             </div>
           </div>
-        )}
+        </CardHeader>
+        <CardContent className="pt-6 space-y-6">
+          {/* NGO Selection status */}
+          <div className="flex flex-col space-y-2">
+            <Label className="text-xs font-bold uppercase tracking-wider text-muted">Selected Organization</Label>
+            <select
+              value={ngoId || ""}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (!val) {
+                  setNgoId(null);
+                  setSelectedNgo(null);
+                  setProjectId(null);
+                } else {
+                  const id = Number(val);
+                  const matched = ngos.find((n) => n.id === id);
+                  if (matched) {
+                    setNgoId(id);
+                    setSelectedNgo(matched);
+                    setProjectId(null);
+                  }
+                }
+              }}
+              className="w-full h-12 px-4 rounded-xl border border-hairline bg-canvas text-ink font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm cursor-pointer"
+            >
+              <option value="">-- Select a Verified NGO --</option>
+              {ngos.map((n) => (
+                <option key={n.id} value={n.id}>
+                  {n.name} ({n.sector || "General"})
+                </option>
+              ))}
+            </select>
+            {selectedNgo && (
+              <span className="text-xs text-primary font-medium">
+                💡 {impactMessage(selectedNgo.sector)}
+              </span>
+            )}
+          </div>
 
-        {/* ✅ AMOUNT */}
-        <div className="form-group">
-          <label>
-            <span className="label-icon">💰</span>
-            <span>Donation Amount</span>
-          </label>
+          {/* Active Work Update (If applicable) */}
+          {selectedNgo && latestUpdate && (
+            <div className="p-4 rounded-xl border border-hairline bg-surface-soft flex flex-col md:flex-row gap-4">
+              {latestUpdate.image_url && (
+                <img
+                  src={latestUpdate.image_url}
+                  alt={latestUpdate.title}
+                  className="w-full md:w-32 h-24 object-cover rounded-lg shrink-0 border border-hairline"
+                />
+              )}
+              <div className="flex-1 flex flex-col justify-between space-y-2">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-bold text-muted uppercase tracking-wider">Latest Milestone</span>
+                  <Badge variant="default" className="bg-surface-strong text-ink font-mono">
+                    {latestUpdate.progress_percentage}% Done
+                  </Badge>
+                </div>
+                <h4 className="text-sm font-bold text-ink leading-tight">{latestUpdate.title}</h4>
+                <p className="text-xs text-body line-clamp-2">{latestUpdate.description}</p>
+                <div className="w-full bg-hairline h-1.5 rounded-full overflow-hidden">
+                  <div
+                    className="bg-semantic-up h-full transition-all duration-300"
+                    style={{ width: `${Math.min(latestUpdate.progress_percentage, 100)}%` }}
+                  />
+                </div>
+                <p className="text-[10px] text-muted leading-tight">
+                  Your funds are secured in escrow and unlock when the NGO submits verifiable progress reports.
+                </p>
+              </div>
+            </div>
+          )}
 
-          <div className="amount-input-enhanced">
-            <div className="amount-quick-select">
+          {/* Amount presets and inputs */}
+          <div className="flex flex-col space-y-3">
+            <Label className="text-xs font-bold uppercase tracking-wider text-muted">Amount (INR)</Label>
+            
+            <div className="grid grid-cols-4 gap-2">
               {INR_PRESETS.map((preset) => (
-                <button
+                <Button
                   key={preset}
-                  className={amountInr === preset ? 'active' : ''}
-                  onClick={() => setAmountInr(preset)}
                   type="button"
+                  variant={amountInr === preset ? "primary" : "secondary"}
+                  onClick={() => setAmountInr(preset)}
+                  className="rounded-lg text-xs font-semibold h-10"
                 >
-                  Rs. {preset}
-                </button>
+                  ₹{preset}
+                </Button>
               ))}
             </div>
-            <div className="amount-input-wrapper">
-              <span className="currency-badge">INR</span>
-              <input
-                className="form-control amount-field"
-                type="number"
-                min={1}
-                step={100}
-                value={amountInr}
-                onChange={(e) => setAmountInr(Number(e.target.value))}
-              />
+
+            <div className="flex items-center space-x-2">
+              <div className="relative flex-1">
+                <Input
+                  type="number"
+                  min={1}
+                  step={100}
+                  value={amountInr}
+                  onChange={(e) => setAmountInr(Number(e.target.value))}
+                  className="pl-12 h-12 text-[16px]"
+                />
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted text-sm font-semibold">₹</span>
+              </div>
             </div>
-            <div className="form-hint">
-              Approx. {amountXLM.toFixed(2)} XLM at Rs. {inrPerXlm.toFixed(2)} / XLM
+
+            <div className="flex justify-between items-center text-xs font-medium text-muted">
+              <span>Approx. {amountXLM.toFixed(2)} XLM</span>
+              <span>Rate: ₹{inrPerXlm.toFixed(2)} / XLM</span>
             </div>
           </div>
-        </div>
 
-        {/* ✅ LOCATION */}
-        <div className="form-group">
-          <label>
-            <span className="label-icon">📍</span>
-            <span>Your Location</span>
-          </label>
-
-          <div className={`location-preview ${selectedLatLng ? 'selected' : ''}`}>
-            {selectedLatLng
-              ? `${selectedLatLng.lat.toFixed(4)}, ${selectedLatLng.lng.toFixed(4)}`
-              : 'Click on the map'}
+          {/* Geolocation status */}
+          <div className="flex flex-col space-y-2">
+            <Label className="text-xs font-bold uppercase tracking-wider text-muted">Donor Location coordinates</Label>
+            <div className={`flex items-center space-x-3 p-4 rounded-xl border ${
+              selectedLatLng
+                ? "bg-emerald-500/5 border-emerald-500/20 text-ink"
+                : "bg-surface-soft border-hairline text-muted"
+            }`}>
+              <MapPin className={`h-5 w-5 ${selectedLatLng ? "text-semantic-up" : "text-muted"}`} />
+              <span className="text-sm font-medium">
+                {selectedLatLng
+                  ? `Location Locked: ${selectedLatLng.lat.toFixed(6)}, ${selectedLatLng.lng.toFixed(6)}`
+                  : "Please lock your coordinates by selecting a point on the map first."}
+              </span>
+            </div>
           </div>
-        </div>
 
-        {/* ✅ SUBMIT */}
-        <button className="donate-btn" onClick={submit} disabled={!ready || processing}>
-          {status === 'idle'
-            ? connected
-              ? latestUpdate
-                ? 'Fund This Progress'
-                : 'Make XLM Donation'
-              : 'Connect Freighter & Donate'
-            : status === 'signing'
-            ? 'Signing...'
-            : 'Processing...'}
-        </button>
+          {/* Submit Action */}
+          <Button
+            onClick={submit}
+            disabled={!ready || processing}
+            className="w-full h-12 text-md font-semibold bg-primary hover:bg-primary-active text-on-primary rounded-pill pt-1.5"
+          >
+            {status === "idle"
+              ? connected
+                ? latestUpdate
+                  ? "Fund Campaign Milestone"
+                  : "Send XLM Donation"
+                : "Connect Wallet & Send"
+              : status === "signing"
+              ? "Awaiting Wallet Approval..."
+              : "Submitting to Stellar..."}
+          </Button>
 
-        {/* ✅ STATUS */}
-        <div className={`status status-${status}`}>
-          {status === 'idle' && 'Ready'}
-          {status === 'signing' && 'Awaiting wallet signature'}
-          {status === 'submitted' && 'Waiting for confirmation'}
-          {status === 'confirmed' && 'Donation successful ✅'}
-          {status === 'error' && (error || 'Error')}
-        </div>
-      </div>
+          {/* Status feedback banner */}
+          {status !== "idle" && (
+            <div className={`p-4 rounded-xl text-xs font-semibold text-center border ${
+              status === "confirmed"
+                ? "bg-emerald-500/5 border-emerald-500/20 text-semantic-up"
+                : status === "error"
+                ? "bg-red-500/5 border-red-500/20 text-semantic-down"
+                : "bg-primary/5 border-primary/20 text-primary animate-pulse"
+            }`}>
+              {status === "signing" && "🔐 Awaiting signature inside Freighter / Albedo / xBull"}
+              {status === "submitted" && "⛓️ Broadcasting transaction on Stellar testnet ledger..."}
+              {status === "confirmed" && "✅ Donation confirmed successfully on-chain!"}
+              {status === "error" && `❌ Error: ${error || "Transaction declined"}`}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <TransactionModal
         open={showModal}
