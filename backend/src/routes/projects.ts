@@ -12,6 +12,10 @@ type ProjectRecord = {
   ngo_id: number;
   latitude?: number;
   longitude?: number;
+  target_amount?: number | null;
+  sector?: string | null;
+  cover_image_url?: string | null;
+  deadline?: string | null;
   created_at: string;
 };
 
@@ -25,6 +29,10 @@ const ProjectSchema = z.object({
   ngo_id: z.number().int(),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
+  target_amount: z.number().positive().optional(),
+  sector: z.string().optional(),
+  cover_image_url: z.string().url().optional().or(z.literal('')),
+  deadline: z.coerce.date().optional(),
 });
 
 /**
@@ -52,13 +60,18 @@ router.post(
           id: mockProjects.length + 1,
           created_at: new Date().toISOString(),
           ...parsed.data,
+          cover_image_url: parsed.data.cover_image_url || null,
+          deadline: parsed.data.deadline?.toISOString() ?? null,
         };
         mockProjects.push(created);
         return res.status(201).json(created);
       }
 
       const created = await prisma.project.create({
-        data: parsed.data,
+        data: {
+          ...parsed.data,
+          cover_image_url: parsed.data.cover_image_url || null,
+        },
       });
 
       return res.status(201).json(created);

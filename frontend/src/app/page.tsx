@@ -14,9 +14,22 @@ import WalletStatus from '../components/WalletStatus';
 import Chatbot from '../components/Chatbot';
 import { getRole } from '../lib/auth';
 import ErrorBoundary from '../components/ErrorBoundary';
-import { CONTRACT_ENV_KEYS } from '../lib/constants';
 
 const Map = nextDynamic(() => import('../components/Map'), { ssr: false });
+
+function getClientContractConfig() {
+  return {
+    donation:
+      process.env.NEXT_PUBLIC_DONATION_REGISTRY_CONTRACT ||
+      process.env.NEXT_PUBLIC_DONATION_REGISTRY_CONTRACT_ID,
+    ngo: process.env.NEXT_PUBLIC_NGO_VERIFICATION_CONTRACT_ID,
+    escrow: process.env.NEXT_PUBLIC_IMPACT_ESCROW_CONTRACT_ID,
+    token:
+      process.env.NEXT_PUBLIC_TOKEN_MANAGER_CONTRACT_ID ||
+      process.env.NEXT_PUBLIC_NATIVE_TOKEN_CONTRACT ||
+      process.env.NEXT_PUBLIC_NATIVE_TOKEN_CONTRACT_ID,
+  };
+}
 
 export default function Home() {
   const [selectedLatLng, setSelectedLatLng] = useState<{ lat: number; lng: number } | undefined>(undefined);
@@ -80,10 +93,7 @@ export default function Home() {
 }
 
 function ContractsStatus() {
-  const d = process.env[CONTRACT_ENV_KEYS.DONATION_REGISTRY] || process.env[CONTRACT_ENV_KEYS.DONATION_REGISTRY_ID];
-  const n = process.env[CONTRACT_ENV_KEYS.NGO_VERIFICATION_ID];
-  const i = process.env[CONTRACT_ENV_KEYS.IMPACT_ESCROW_ID];
-  const t = process.env[CONTRACT_ENV_KEYS.TOKEN_MANAGER_ID];
+  const { donation: d, ngo: n, escrow: i, token: t } = getClientContractConfig();
   const ok = d && n && i && t;
   return (
     <div style={{ fontSize: 12, padding: 8, border: '1px dashed #ddd' }}>
@@ -98,10 +108,7 @@ function ContractsStatus() {
 }
 
 function ContractsPanel() {
-  const d = process.env[CONTRACT_ENV_KEYS.DONATION_REGISTRY] || process.env[CONTRACT_ENV_KEYS.DONATION_REGISTRY_ID];
-  const n = process.env[CONTRACT_ENV_KEYS.NGO_VERIFICATION_ID];
-  const i = process.env[CONTRACT_ENV_KEYS.IMPACT_ESCROW_ID];
-  const t = process.env[CONTRACT_ENV_KEYS.TOKEN_MANAGER_ID];
+  const { donation: d, ngo: n, escrow: i, token: t } = getClientContractConfig();
   return (
     <div>
       <h3 style={{ marginBottom: 16 }}>Smart Contracts</h3>

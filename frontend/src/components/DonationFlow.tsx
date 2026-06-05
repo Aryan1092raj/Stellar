@@ -5,6 +5,8 @@ import { authFetch } from '../lib/auth';
 import { buildDonationTx, submitTx } from '../lib/stellar';
 import { useFreighter } from '../hooks/useFreighter';
 import { listNGOs, NGOItem } from '../lib/api/client';
+import DonorFeed from './DonorFeed';
+import { latestWorkUpdateForNGO, StoredWorkUpdate } from '../lib/workUpdates';
 
 const INR_PRESETS = [100, 500, 1000, 5000];
 const FALLBACK_INR_PER_XLM = 38; // ~₹38/XLM as of mid-2026 fallback
@@ -15,6 +17,18 @@ type SelectedNGODetail = {
   sector?: string | null;
   wallet_address?: string;
   project_id?: number;
+};
+
+type DonationReceipt = {
+  donationId: number;
+  amount: number;
+  ngoName: string;
+  timestamp: string;
+};
+
+type WorkUpdateEventDetail = {
+  donationId: number;
+  update: StoredWorkUpdate;
 };
 
 function getErrorMessage(error: unknown) {
@@ -50,6 +64,8 @@ export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { la
   const [showModal, setShowModal] = useState(false);
   const [txHash, setTxHash] = useState<string | undefined>();
   const [error, setError] = useState<string | undefined>();
+  const [latestUpdate, setLatestUpdate] = useState<StoredWorkUpdate | null>(null);
+  const [donationReceipt, setDonationReceipt] = useState<DonationReceipt | undefined>();
 
   const [ngos, setNgos] = useState<NGOItem[]>([]);
   const { publicKey, connected, connect, sign } = useFreighter();
@@ -106,6 +122,13 @@ export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { la
         throw new Error('Backend rejected donation confirmation');
       }
 
+      const savedDonation = await res.json();
+      setDonationReceipt({
+        donationId: savedDonation.id,
+        amount: amountXLM,
+        ngoName: selectedNgo.name,
+        timestamp: savedDonation.created_at || new Date().toISOString(),
+      });
       setStatus('confirmed');
     } catch (e: unknown) {
       console.error(e);
@@ -136,6 +159,26 @@ export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { la
     window.addEventListener('select-ngo', handler);
     return () => window.removeEventListener('select-ngo', handler);
   }, [ngos]);
+
+  useEffect(() => {
+    if (!selectedNgo) {
+      setLatestUpdate(null);
+      return;
+    }
+
+    const selectedNgoId = selectedNgo.id;
+    setLatestUpdate(latestWorkUpdateForNGO(selectedNgo.id));
+
+    function handleWorkUpdate(event: Event) {
+      const detail = (event as CustomEvent<WorkUpdateEventDetail>).detail;
+      if (detail?.update?.ngo_id === selectedNgoId) {
+        setLatestUpdate(detail.update);
+      }
+    }
+
+    window.addEventListener('work-update-posted', handleWorkUpdate);
+    return () => window.removeEventListener('work-update-posted', handleWorkUpdate);
+  }, [selectedNgo]);
 
   // ✅ Load NGOs on mount
   useEffect(() => {
@@ -180,6 +223,7 @@ export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { la
 
   return (
     <div className="stack">
+      <DonorFeed />
       <div className="section-header">
         <div className="section-icon">💝</div>
         <div>
@@ -200,6 +244,26 @@ export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { la
           </div>
           {selectedNgo && <div className="form-hint">{impactMessage(selectedNgo.sector)}</div>}
         </div>
+
+        {selectedNgo && latestUpdate && (
+          <div className="work-update-preview">
+            {latestUpdate.image_url && (
+              <img src={latestUpdate.image_url} alt="" />
+            )}
+            <div className="work-update-preview-body">
+              <div className="work-update-preview-topline">
+                <span>Latest work update</span>
+                <b>{latestUpdate.progress_percentage}%</b>
+              </div>
+              <h4>{latestUpdate.title}</h4>
+              <p>{latestUpdate.description}</p>
+              <div className="progress-bar-container">
+                <div className="progress-bar" style={{ width: `${Math.min(latestUpdate.progress_percentage, 100)}%` }}></div>
+              </div>
+              <small>Your donation unlocks when this NGO posts their next update.</small>
+            </div>
+          </div>
+        )}
 
         {/* ✅ AMOUNT */}
         <div className="form-group">
@@ -256,7 +320,9 @@ export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { la
         <button className="donate-btn" onClick={submit} disabled={!ready || processing}>
           {status === 'idle'
             ? connected
-              ? 'Make XLM Donation'
+              ? latestUpdate
+                ? 'Fund This Progress'
+                : 'Make XLM Donation'
               : 'Connect Freighter & Donate'
             : status === 'signing'
             ? 'Signing...'
@@ -278,6 +344,7 @@ export default function DonationFlow({ selectedLatLng }: { selectedLatLng?: { la
         status={status}
         hash={txHash}
         error={error}
+        receipt={donationReceipt}
         onClose={() => setShowModal(false)}
       />
     </div>

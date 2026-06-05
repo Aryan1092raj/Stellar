@@ -18,7 +18,7 @@ async function resolveNGOContext(req: AuthenticatedRequest) {
   const fromToken = parseNumericId(req.user?.ngoId);
   const fromBody = parseNumericId(req.body?.ngo_id) || parseNumericId(req.body?.ngoId);
   let ngoId = fromToken || fromBody;
-  let walletAddress = req.user?.walletAddress || null;
+  let walletAddress = req.user?.walletAddress || req.body?.wallet_address || req.body?.walletAddress || null;
 
   const donationId = parseNumericId(req.body?.donation_id) || parseNumericId(req.params?.id);
   if (!ngoId && donationId && process.env.DATABASE_URL) {

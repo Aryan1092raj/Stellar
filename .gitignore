@@ -35,6 +35,12 @@ Thumbs.db
 *.log
 npm-debug.log*
 
+# Large local data imports
+datset.csv
+dataset.csv
+backend/data/*.csv
+!backend/data/*.sample.csv
+
 # Test
 coverage/
 

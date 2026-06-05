@@ -1,0 +1,4 @@
+data_as_on,unique_id,ngo_name,ngo_email,city_of_registration,state_of_registration,district,registration_number,type_of_ngo,date_of_registration,field_of_work
+2025-02,DL/2025/000001,CRY - Child Rights and You,info@example.org,New Delhi,Delhi,New Delhi,REG-001,Trust,1979-01-01,Children
+2025-02,MH/2025/000002,Goonj,info@example.org,Mumbai,Maharashtra,Mumbai,REG-002,Society,1999-01-01,Disaster Management
+2025-02,KA/2025/000003,The Akshaya Patra Foundation,info@example.org,Bengaluru,Karnataka,Bengaluru Urban,REG-003,Section 8 Company,2000-01-01,Education

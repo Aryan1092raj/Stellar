@@ -1,14 +1,11 @@
 'use client';
 import { useEffect, useState } from 'react';
-
-type HorizonBalance = {
-  asset_type: string;
-  balance: string;
-};
-
-type HorizonAccountResponse = {
-  balances?: HorizonBalance[];
-};
+import {
+  connectFreighter as connectFreighterWallet,
+  getWalletBalance,
+  loadWalletInfo,
+  saveWalletInfo,
+} from '../lib/stellar/wallet';
 
 export default function WalletConnectSection() {
   const [publicKey, setPublicKey] = useState<string | null>(null);
@@ -17,15 +14,9 @@ export default function WalletConnectSection() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const horizonUrl = process.env.NEXT_PUBLIC_STELLAR_HORIZON_URL || 'https://horizon-testnet.stellar.org';
-
   async function refreshBalance(pk: string) {
     try {
-      const res = await fetch(`${horizonUrl}/accounts/${pk}`);
-      if (!res.ok) throw new Error('horizon-failed');
-      const data = await res.json() as HorizonAccountResponse;
-      const native = (data.balances || []).find((b) => b.asset_type === 'native');
-      if (native) setBalance(native.balance);
+      setBalance(await getWalletBalance(pk));
     } catch (e: unknown) {
       setError('balance-error');
       console.error(e);
@@ -36,16 +27,13 @@ export default function WalletConnectSection() {
     setError(null);
     setLoading(true);
     try {
-      if (!window.freighterApi) {
-        setError('Freighter not found');
-        return;
-      }
-      await window.freighterApi.requestAccess();
-      const info = await window.freighterApi.getUserInfo();
+      const info = await connectFreighterWallet();
       setPublicKey(info.publicKey);
+      setNetwork(info.network);
+      saveWalletInfo(info);
       await refreshBalance(info.publicKey);
     } catch (e: unknown) {
-      setError('connect-failed');
+      setError(e instanceof Error ? e.message : 'connect-failed');
       console.error(e);
     } finally {
       setLoading(false);
@@ -53,15 +41,12 @@ export default function WalletConnectSection() {
   }
 
   useEffect(() => {
-    (async () => {
-      try {
-        if (window.freighterApi && await window.freighterApi.isConnected()) {
-          const info = await window.freighterApi.getUserInfo();
-          setPublicKey(info.publicKey);
-          refreshBalance(info.publicKey);
-        }
-      } catch (_) {}
-    })();
+    const saved = loadWalletInfo();
+    if (saved?.type === 'freighter') {
+      setPublicKey(saved.publicKey);
+      setNetwork(saved.network);
+      refreshBalance(saved.publicKey);
+    }
   }, []);
 
   return (

@@ -63,12 +63,14 @@ async function main() {
       update: {
         sector: ngo.sector,
         verification_status: 'verified',
+        source: 'curated-india',
       },
       create: {
         name: ngo.name,
         sector: ngo.sector,
         wallet_address: placeholderWallet(ngo.name),
         verification_status: 'verified',
+        source: 'curated-india',
       },
     });
 

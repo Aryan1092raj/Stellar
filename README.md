@@ -134,6 +134,43 @@ npm run build
 npm test
 ```
 
+Seed or import NGOs:
+
+```bash
+cd backend
+npm run seed:ngos
+npm run import:ngos -- --file data/indian-ngos.sample.csv --limit 3
+```
+
+For the full India list, download a NGO-DARPAN/NITI Aayog export locally, for example a CSV with headers like `unique_id`, `ngo_name`, `state_of_registration`, `district`, `city_of_registration`, `field_of_work`, and `registration_number`, then run:
+
+```bash
+cd backend
+npm run import:ngos -- --file data/indian-ngos.csv --source ngo-darpan --status pending
+```
+
+For smaller curated files with headers like `Organization`, `Link`, and `Description`, use a separate source label:
+
+```bash
+cd backend
+npm run import:ngos -- --file ../datset.csv --source curated-india-ngos --status pending
+```
+
+Preview any CSV without touching the database:
+
+```bash
+cd backend
+npm run import:ngos -- --file ../datset.csv --source curated-india-ngos --dry-run
+```
+
+Refresh the local frontend fallback list used when the backend database is unavailable:
+
+```bash
+node scripts/generate_curated_ngos.mjs datset.csv frontend/public/data/curated-india-ngos.json
+```
+
+Large CSV files under `backend/data/*.csv` are ignored by Git. Keep real registry exports local and commit only small `*.sample.csv` examples.
+
 ### Frontend
 
 ```bash

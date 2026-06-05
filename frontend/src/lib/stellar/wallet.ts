@@ -1,11 +1,14 @@
 import { StellarWalletsKit, WalletNetwork, FreighterModule } from '@creit.tech/stellar-wallets-kit';
 import { Networks } from '@stellar/stellar-sdk';
 import {
-  isConnected,
-  requestAccess,
-  getAddress,
   getNetwork,
+  signTransaction,
 } from '@stellar/freighter-api';
+import {
+  freighterErrorMessage,
+  isFreighterAvailable,
+  requestFreighterAddress,
+} from '../freighter';
 
 export type WalletType = 'freighter' | 'albedo' | 'xbull' | 'lobstr';
 
@@ -54,12 +57,7 @@ function errorMessage(error: unknown) {
 
 // Wallet detection
 export async function hasFreighter(): Promise<boolean> {
-  try {
-    const result = await isConnected();
-    return result.isConnected;
-  } catch {
-    return false;
-  }
+  return isFreighterAvailable();
 }
 
 export function hasXBull() {
@@ -81,25 +79,11 @@ export async function detectWallets() {
 // Freighter connection
 export async function connectFreighter(): Promise<WalletInfo> {
   try {
-    const connected = await isConnected();
-    if (!connected.isConnected) {
-      throw new Error('Freighter wallet not installed. Please install from https://www.freighter.app/');
-    }
-
-    const accessResult = await requestAccess();
-    if (accessResult.error) {
-      throw new Error('User declined access');
-    }
-
-    const keyResult = await getAddress();
-    if (!keyResult.address) {
-      throw new Error('Failed to get public key');
-    }
-
+    const address = await requestFreighterAddress();
     const networkResult = await getNetwork();
     
     return {
-      publicKey: keyResult.address,
+      publicKey: address,
       type: 'freighter',
       network: networkResult.network || STELLAR_NETWORK,
     };
@@ -171,12 +155,7 @@ export async function connectWallet(type: WalletType): Promise<WalletInfo> {
 
 // Check if wallet is connected
 export async function isFreighterConnected() {
-  if (!(await hasFreighter())) return false;
-  try {
-    return await window.freighterApi!.isConnected();
-  } catch {
-    return false;
-  }
+  return hasFreighter();
 }
 
 // Sign transaction XDR
@@ -185,10 +164,13 @@ export async function signXdr(xdr: string, type: WalletType = 'freighter'): Prom
     switch (type) {
       case 'freighter':
         if (!(await hasFreighter())) throw new Error('Freighter not found');
-        const freighterResult = await window.freighterApi!.signTransaction(xdr, {
+        const freighterResult = await signTransaction(xdr, {
           networkPassphrase: NETWORK_PASSPHRASE,
         });
-        return freighterResult;
+        if (freighterResult.error || !freighterResult.signedTxXdr) {
+          throw new Error(freighterErrorMessage(freighterResult.error));
+        }
+        return freighterResult.signedTxXdr;
       
       case 'xbull':
         if (!hasXBull()) throw new Error('xBull not found');

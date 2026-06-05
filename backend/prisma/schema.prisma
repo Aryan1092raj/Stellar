@@ -34,19 +34,38 @@ model NGO {
   wallet_address      String
   verification_status String
   sector              String?
+  source              String?
+  source_id           String?  @unique
+  email               String?
+  state               String?
+  district            String?
+  city                String?
+  registration_number String?
+  type_of_ngo         String?
   impact_metrics      Json?
   locations           Json?
   created_at          DateTime @default(now())
+
+  @@index([source])
+  @@index([state])
+  @@index([district])
 }
 
 model Project {
-  id           Int      @id @default(autoincrement())
-  name         String
-  description  String?
-  ngo_id       Int
-  latitude     Float?
-  longitude    Float?
-  created_at   DateTime @default(now())
+  id              Int      @id @default(autoincrement())
+  name            String
+  description     String?
+  ngo_id          Int
+  latitude        Float?
+  longitude       Float?
+  target_amount   Float?
+  sector          String?
+  cover_image_url String?
+  deadline        DateTime?
+  created_at      DateTime @default(now())
+
+  @@index([ngo_id])
+  @@index([deadline])
 }
 
 model User {

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from 'react';
-import { 
+import {
   connectWallet, 
   disconnectWallet, 
   hasFreighter,
@@ -13,6 +13,10 @@ import {
   WalletInfo,
   STELLAR_NETWORK 
 } from '../lib/stellar/wallet';
+import {
+  formatFreighterUnavailableMessage,
+  getFreighterDiagnostics,
+} from '../lib/freighter';
 import Modal from './Modal';
 
 export default function WalletStatus() {
@@ -23,6 +27,7 @@ export default function WalletStatus() {
   const [availableWallets, setAvailableWallets] = useState<WalletType[]>([]);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string>('');
+  const [freighterHint, setFreighterHint] = useState<string>('');
 
   // Load saved wallet on mount
   useEffect(() => {
@@ -37,6 +42,12 @@ export default function WalletStatus() {
       const freighterAvailable = await hasFreighter();
       const wallets: WalletType[] = [];
       if (freighterAvailable) wallets.push('freighter');
+      if (!freighterAvailable) {
+        const diagnostics = await getFreighterDiagnostics();
+        setFreighterHint(formatFreighterUnavailableMessage(diagnostics));
+      } else {
+        setFreighterHint('');
+      }
       if (hasXBull()) wallets.push('xbull');
       if (hasAlbedo()) wallets.push('albedo');
       setAvailableWallets(wallets);
@@ -125,7 +136,7 @@ export default function WalletStatus() {
             </button>
             {availableWallets.length === 0 && (
               <div className="wallet-hint">
-                ℹ️ Install <a href="https://www.freighter.app/" target="_blank" rel="noopener noreferrer">Freighter</a> to connect
+                ℹ️ {freighterHint || <>Install or enable <a href="https://www.freighter.app/" target="_blank" rel="noopener noreferrer">Freighter</a> for this site to connect</>}
               </div>
             )}
           </div>

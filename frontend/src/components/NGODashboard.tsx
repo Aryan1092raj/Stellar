@@ -1,8 +1,16 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { getRole } from '../lib/auth';
+import { authFetch, getRole } from '../lib/auth';
 import { submitTx } from '../lib/stellar';
 import { useFreighter } from '../hooks/useFreighter';
+import {
+  createNotificationFromUpdate,
+  saveDonorNotification,
+  saveStoredWorkUpdate,
+  StoredWorkUpdate,
+} from '../lib/workUpdates';
+
+const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || '';
 
 interface Donation {
   id: number;
@@ -12,6 +20,7 @@ interface Donation {
   created_at: string;
   evidence_url?: string;
   ngo_id: number;
+  project_id?: number | null;
 }
 
 interface WorkUpdate {
@@ -24,9 +33,32 @@ interface WorkUpdate {
   created_at?: string;
 }
 
+interface CampaignProject {
+  id: number;
+  name: string;
+  description?: string | null;
+  ngo_id: number;
+  target_amount?: number | null;
+  sector?: string | null;
+  cover_image_url?: string | null;
+  deadline?: string | null;
+  created_at?: string;
+}
+
+type CampaignForm = {
+  title: string;
+  description: string;
+  target_amount: string;
+  sector: string;
+  cover_image_url: string;
+  deadline: string;
+  ngo_id: string;
+};
+
 export default function NGODashboard() {
   const [role, setRole] = useState<string | null>(null);
   const [donations, setDonations] = useState<Donation[]>([]);
+  const [campaigns, setCampaigns] = useState<CampaignProject[]>([]);
   const [selectedDonation, setSelectedDonation] = useState<number | null>(null);
   const [updates, setUpdates] = useState<WorkUpdate[]>([]);
   const [newUpdate, setNewUpdate] = useState<WorkUpdate>({
@@ -37,6 +69,17 @@ export default function NGODashboard() {
     progress_percentage: 0,
   });
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+  const [campaignStatus, setCampaignStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [campaignError, setCampaignError] = useState('');
+  const [campaignForm, setCampaignForm] = useState<CampaignForm>({
+    title: '',
+    description: '',
+    target_amount: '',
+    sector: '',
+    cover_image_url: '',
+    deadline: '',
+    ngo_id: '',
+  });
   const [totalReceived, setTotalReceived] = useState(0);
   const { publicKey, connect, sign } = useFreighter();
 
@@ -48,7 +91,7 @@ export default function NGODashboard() {
   useEffect(() => {
     async function loadDonations() {
       try {
-        const res = await fetch('/api/donations', {
+        const res = await fetch(`${API_BASE}/api/donations`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
           },
@@ -58,6 +101,10 @@ export default function NGODashboard() {
           setDonations(data);
           const total = data.reduce((sum: number, d: Donation) => sum + parseFloat(d.amount.toString()), 0);
           setTotalReceived(total);
+          const inferredNgoId = data.find((donation: Donation) => donation.ngo_id)?.ngo_id;
+          if (inferredNgoId) {
+            setCampaignForm((current) => current.ngo_id ? current : { ...current, ngo_id: String(inferredNgoId) });
+          }
         }
       } catch (err) {
         console.error('Failed to load donations:', err);
@@ -70,6 +117,74 @@ export default function NGODashboard() {
     }
   }, [role]);
 
+  useEffect(() => {
+    async function loadCampaigns() {
+      try {
+        const res = await fetch(`${API_BASE}/api/projects`);
+        if (res.ok) setCampaigns(await res.json());
+      } catch (err) {
+        console.error('Failed to load campaigns:', err);
+      }
+    }
+
+    if (role === 'ngo') {
+      loadCampaigns();
+      const interval = setInterval(loadCampaigns, 15000);
+      return () => clearInterval(interval);
+    }
+  }, [role]);
+
+  async function createCampaign() {
+    const ngoId = Number(campaignForm.ngo_id);
+    const targetAmount = Number(campaignForm.target_amount);
+
+    if (!campaignForm.title || !campaignForm.description || !Number.isInteger(ngoId) || ngoId <= 0 || !Number.isFinite(targetAmount) || targetAmount <= 0) {
+      setCampaignStatus('error');
+      setCampaignError('Add a title, description, NGO ID, and positive target amount.');
+      return;
+    }
+
+    setCampaignStatus('saving');
+    setCampaignError('');
+    try {
+      const walletPublicKey = publicKey || await connect();
+      if (!walletPublicKey) throw new Error('Connect Freighter before creating a campaign');
+
+      const res = await authFetch(`${API_BASE}/api/projects`, {
+        method: 'POST',
+        body: JSON.stringify({
+          name: campaignForm.title,
+          description: campaignForm.description,
+          ngo_id: ngoId,
+          wallet_address: walletPublicKey,
+          target_amount: targetAmount,
+          sector: campaignForm.sector || undefined,
+          cover_image_url: campaignForm.cover_image_url || undefined,
+          deadline: campaignForm.deadline || undefined,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Campaign could not be created');
+      const created = await res.json();
+      setCampaigns((current) => [created, ...current.filter((item) => item.id !== created.id)]);
+      setCampaignForm({
+        title: '',
+        description: '',
+        target_amount: '',
+        sector: '',
+        cover_image_url: '',
+        deadline: '',
+        ngo_id: String(ngoId),
+      });
+      setCampaignStatus('success');
+      setTimeout(() => setCampaignStatus('idle'), 2500);
+    } catch (err) {
+      setCampaignStatus('error');
+      setCampaignError(err instanceof Error ? err.message : 'Campaign could not be created');
+      setTimeout(() => setCampaignStatus('idle'), 3500);
+    }
+  }
+
   async function uploadWorkUpdate() {
     if (!newUpdate.title || !newUpdate.description || newUpdate.donation_id === 0) {
       return;
@@ -80,7 +195,7 @@ export default function NGODashboard() {
       const walletPublicKey = publicKey || await connect();
       if (!walletPublicKey) throw new Error('Connect Freighter before signing');
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/evidence/prepare`, {
+      const res = await fetch(`${API_BASE}/api/evidence/prepare`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -108,7 +223,7 @@ export default function NGODashboard() {
       const signedEvidenceXdr = await sign(evidenceData.xdr);
       const evidenceTxHash = await submitTx(signedEvidenceXdr);
 
-      const evidenceConfirmRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/evidence/confirm`, {
+      const evidenceConfirmRes = await fetch(`${API_BASE}/api/evidence/confirm`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -123,7 +238,7 @@ export default function NGODashboard() {
 
       if (!evidenceConfirmRes.ok) throw new Error('Evidence confirmation failed');
 
-      const verifyPrepareRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/donations/${newUpdate.donation_id}/verify/prepare`, {
+      const verifyPrepareRes = await fetch(`${API_BASE}/api/donations/${newUpdate.donation_id}/verify/prepare`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -137,7 +252,7 @@ export default function NGODashboard() {
       const signedVerifyXdr = await sign(verifyPrepare.xdr);
       const verifyTxHash = await submitTx(signedVerifyXdr);
 
-      const verifyConfirmRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/donations/${newUpdate.donation_id}/verify/confirm`, {
+      const verifyConfirmRes = await fetch(`${API_BASE}/api/donations/${newUpdate.donation_id}/verify/confirm`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -147,6 +262,25 @@ export default function NGODashboard() {
       });
 
       if (verifyConfirmRes.ok) {
+        const postedAt = new Date().toISOString();
+        const donation = donations.find((item) => item.id === newUpdate.donation_id);
+        const postedUpdate: StoredWorkUpdate = {
+          donation_id: newUpdate.donation_id,
+          ngo_id: donation?.ngo_id ?? null,
+          title: newUpdate.title,
+          description: newUpdate.description,
+          image_url: newUpdate.image_url,
+          progress_percentage: newUpdate.progress_percentage,
+          created_at: postedAt,
+        };
+        saveStoredWorkUpdate(postedUpdate);
+        saveDonorNotification(createNotificationFromUpdate(postedUpdate));
+        window.dispatchEvent(new CustomEvent('work-update-posted', {
+          detail: {
+            donationId: newUpdate.donation_id,
+            update: postedUpdate,
+          },
+        }));
         setUploadStatus('success');
         setNewUpdate({
           donation_id: 0,
@@ -158,7 +292,7 @@ export default function NGODashboard() {
         setSelectedDonation(null);
         
         // Reload donations
-        const reloadRes = await fetch('/api/donations', {
+        const reloadRes = await fetch(`${API_BASE}/api/donations`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         });
         if (reloadRes.ok) {
@@ -195,6 +329,19 @@ export default function NGODashboard() {
 
   const pendingDonations = donations.filter(d => !d.evidence_url);
   const completedDonations = donations.filter(d => d.evidence_url);
+  const knownNgoIds = new Set(donations.map((donation) => donation.ngo_id).filter(Boolean));
+  const selectedCampaignNgoId = Number(campaignForm.ngo_id);
+  const visibleCampaigns = campaigns.filter((campaign) => {
+    if (knownNgoIds.size > 0) return knownNgoIds.has(campaign.ngo_id);
+    if (Number.isInteger(selectedCampaignNgoId) && selectedCampaignNgoId > 0) return campaign.ngo_id === selectedCampaignNgoId;
+    return true;
+  });
+  const receivedForCampaign = (campaign: CampaignProject) => donations
+    .filter((donation) => donation.project_id === campaign.id)
+    .reduce((sum, donation) => sum + Number(donation.amount), 0);
+  const totalCampaignTarget = visibleCampaigns.reduce((sum, campaign) => sum + Number(campaign.target_amount || 0), 0);
+  const totalCampaignReceived = visibleCampaigns.reduce((sum, campaign) => sum + receivedForCampaign(campaign), 0);
+  const remainingCampaignFunding = Math.max(totalCampaignTarget - totalCampaignReceived, 0);
 
   return (
     <div className="ngo-dashboard">
@@ -225,6 +372,163 @@ export default function NGODashboard() {
       </div>
 
       <div className="dashboard-content">
+        <div className="campaign-section">
+          <div className="section-header">
+            <div className="section-icon">+</div>
+            <div>
+              <h3 className="section-title">Create Campaign</h3>
+              <p className="section-subtitle">Define a funding target donors can track by project</p>
+            </div>
+          </div>
+
+          <div className="campaign-form-grid">
+            <label className="form-group">
+              <span>Campaign title</span>
+              <input
+                className="form-control"
+                placeholder="Clean water for village schools"
+                value={campaignForm.title}
+                onChange={(e) => setCampaignForm({ ...campaignForm, title: e.target.value })}
+              />
+            </label>
+            <label className="form-group">
+              <span>Target amount in XLM</span>
+              <input
+                className="form-control"
+                type="number"
+                min="1"
+                step="1"
+                placeholder="2500"
+                value={campaignForm.target_amount}
+                onChange={(e) => setCampaignForm({ ...campaignForm, target_amount: e.target.value })}
+              />
+            </label>
+            <label className="form-group">
+              <span>Project category</span>
+              <input
+                className="form-control"
+                placeholder="Education, Health, Environment"
+                value={campaignForm.sector}
+                onChange={(e) => setCampaignForm({ ...campaignForm, sector: e.target.value })}
+              />
+            </label>
+            <label className="form-group">
+              <span>Deadline</span>
+              <input
+                className="form-control"
+                type="date"
+                value={campaignForm.deadline}
+                onChange={(e) => setCampaignForm({ ...campaignForm, deadline: e.target.value })}
+              />
+            </label>
+            <label className="form-group campaign-form-wide">
+              <span>Description</span>
+              <textarea
+                className="form-control evidence-textarea"
+                placeholder="Explain the field work, milestones, and expected impact."
+                rows={3}
+                value={campaignForm.description}
+                onChange={(e) => setCampaignForm({ ...campaignForm, description: e.target.value })}
+              />
+            </label>
+            <label className="form-group">
+              <span>Cover image URL</span>
+              <input
+                className="form-control"
+                placeholder="https://example.com/campaign.jpg"
+                value={campaignForm.cover_image_url}
+                onChange={(e) => setCampaignForm({ ...campaignForm, cover_image_url: e.target.value })}
+              />
+            </label>
+            <label className="form-group">
+              <span>NGO ID</span>
+              <input
+                className="form-control"
+                type="number"
+                min="1"
+                placeholder="Auto-filled from donations"
+                value={campaignForm.ngo_id}
+                onChange={(e) => setCampaignForm({ ...campaignForm, ngo_id: e.target.value })}
+              />
+            </label>
+          </div>
+
+          <button
+            className="upload-work-btn"
+            onClick={createCampaign}
+            disabled={campaignStatus === 'saving'}
+            type="button"
+          >
+            {campaignStatus === 'saving' ? 'Creating Campaign...' : 'Create Campaign'}
+          </button>
+          {campaignStatus !== 'idle' && (
+            <div className={`status-enhanced status-${campaignStatus === 'success' ? 'success' : campaignStatus === 'error' ? 'error' : 'uploading'}`}>
+              <div className="status-message">
+                {campaignStatus === 'success' && 'Campaign created successfully.'}
+                {campaignStatus === 'saving' && 'Saving campaign...'}
+                {campaignStatus === 'error' && (campaignError || 'Campaign could not be created.')}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="funding-overview">
+          <div className="funding-summary">
+            <div>
+              <span>Total Target</span>
+              <strong>{totalCampaignTarget.toFixed(2)} XLM</strong>
+            </div>
+            <div>
+              <span>Received</span>
+              <strong>{totalCampaignReceived.toFixed(2)} XLM</strong>
+            </div>
+            <div>
+              <span>Remaining</span>
+              <strong>{remainingCampaignFunding.toFixed(2)} XLM</strong>
+            </div>
+          </div>
+          <div className="campaign-cards">
+            {visibleCampaigns.map((campaign) => {
+              const received = receivedForCampaign(campaign);
+              const target = Number(campaign.target_amount || 0);
+              const progress = target > 0 ? Math.min((received / target) * 100, 100) : 0;
+              const complete = target > 0 && received >= target;
+              return (
+                <article className="campaign-card" key={campaign.id}>
+                  {campaign.cover_image_url && (
+                    <img className="campaign-cover" src={campaign.cover_image_url} alt="" />
+                  )}
+                  <div className="campaign-card-body">
+                    <div className="campaign-card-header">
+                      <div>
+                        <h4>{campaign.name}</h4>
+                        {campaign.sector && <span>{campaign.sector}</span>}
+                      </div>
+                      {complete && <b>Campaign Complete</b>}
+                    </div>
+                    {campaign.description && <p>{campaign.description}</p>}
+                    <div className="campaign-progress-row">
+                      <span>{received.toFixed(2)} / {target.toFixed(2)} XLM</span>
+                      <span>{progress.toFixed(0)}%</span>
+                    </div>
+                    <div className="progress-bar-container">
+                      <div className="progress-bar" style={{ width: `${progress}%` }}></div>
+                    </div>
+                    {campaign.deadline && (
+                      <small>Deadline: {new Date(campaign.deadline).toLocaleDateString()}</small>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+            {visibleCampaigns.length === 0 && (
+              <div className="empty-state-small">
+                <p>No active campaigns yet</p>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Upload Work Update Form */}
         <div className="work-update-section">
           <div className="section-header">

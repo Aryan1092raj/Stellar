@@ -3,23 +3,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   getAddress,
-  isConnected as checkFreighterConnection,
-  requestAccess,
   signTransaction,
 } from '@stellar/freighter-api';
+import {
+  freighterErrorMessage,
+  isFreighterAvailable,
+  requestFreighterAddress,
+} from '../lib/freighter';
 import { getNetworkPassphrase } from '../lib/stellar';
 
 const WALLET_PUBLIC_KEY_STORAGE_KEY = 'wallet_public_key';
-
-function freighterErrorMessage(error: unknown) {
-  if (!error) return 'Freighter request failed';
-  if (typeof error === 'string') return error;
-  if (error instanceof Error) return error.message;
-  if (typeof error === 'object' && 'message' in error) {
-    return String((error as { message?: unknown }).message);
-  }
-  return 'Freighter request failed';
-}
 
 export function useFreighter() {
   const [publicKey, setPublicKey] = useState<string | null>(null);
@@ -36,10 +29,10 @@ export function useFreighter() {
         setPublicKey(storedPublicKey);
       }
 
-      const connection = await checkFreighterConnection();
+      const available = await isFreighterAvailable({ retries: 8, retryDelayMs: 250 });
       if (cancelled) return;
 
-      if (connection.error || !connection.isConnected) {
+      if (!available) {
         setConnected(false);
         return;
       }
@@ -63,21 +56,13 @@ export function useFreighter() {
   }, []);
 
   const connect = useCallback(async () => {
-    const connection = await checkFreighterConnection();
-    if (connection.error || !connection.isConnected) {
-      throw new Error('Freighter wallet is not available');
-    }
-
-    const access = await requestAccess();
-    if (access.error || !access.address) {
-      throw new Error(freighterErrorMessage(access.error));
-    }
+    const address = await requestFreighterAddress();
 
     setConnected(true);
-    setPublicKey(access.address);
-    localStorage.setItem(WALLET_PUBLIC_KEY_STORAGE_KEY, access.address);
+    setPublicKey(address);
+    localStorage.setItem(WALLET_PUBLIC_KEY_STORAGE_KEY, address);
 
-    return access.address;
+    return address;
   }, []);
 
   const sign = useCallback(

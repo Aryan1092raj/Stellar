@@ -10,7 +10,6 @@ import {
 import {
   CONFIRMATION_MAX_ATTEMPTS,
   CONFIRMATION_POLL_INTERVAL_MS,
-  CONTRACT_ENV_KEYS,
   COORDINATE_SCALE,
   DEFAULT_SOROBAN_RPC_URL,
   STELLAR_NETWORK_NAMES,
@@ -55,8 +54,8 @@ export function getNetworkPassphrase() {
 function getDonationRegistryContractId(override?: string) {
   const contractId =
     override ||
-    process.env[CONTRACT_ENV_KEYS.DONATION_REGISTRY] ||
-    process.env[CONTRACT_ENV_KEYS.DONATION_REGISTRY_ID];
+    process.env.NEXT_PUBLIC_DONATION_REGISTRY_CONTRACT ||
+    process.env.NEXT_PUBLIC_DONATION_REGISTRY_CONTRACT_ID;
 
   if (!contractId) {
     throw new Error('Donation registry contract is not configured');
@@ -68,8 +67,8 @@ function getDonationRegistryContractId(override?: string) {
 function getNativeTokenContractId(override?: string) {
   const contractId =
     override ||
-    process.env[CONTRACT_ENV_KEYS.NATIVE_TOKEN] ||
-    process.env[CONTRACT_ENV_KEYS.NATIVE_TOKEN_ID];
+    process.env.NEXT_PUBLIC_NATIVE_TOKEN_CONTRACT ||
+    process.env.NEXT_PUBLIC_NATIVE_TOKEN_CONTRACT_ID;
 
   if (!contractId) {
     throw new Error('Native token contract is not configured');

@@ -19,24 +19,41 @@ export default function AuthForm({ role }: { role: "donor" | "ngo" }) {
   const [otp, setOtp] = useState("");
   const [step, setStep] = useState<"email" | "otp">("email");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const { loginWithGoogle, loading: googleLoading, error: googleError } = useGoogleAuth(role);
+  const title = role === "ngo" ? "NGO Login" : "Donor Login";
+  const subtitle = role === "ngo"
+    ? "Access your campaigns, evidence uploads, and donor updates."
+    : "Sign in to fund verified progress with transparent Stellar records.";
 
   async function handleSendOtp() {
     setLoading(true);
-    await sendOtp(email);
-    setStep("otp");
-    setLoading(false);
+    setError("");
+    try {
+      await sendOtp(email);
+      setStep("otp");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to send OTP");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleVerifyOtp() {
     setLoading(true);
-    const success = await verifyOtp(email, otp, role);
-    setLoading(false);
+    setError("");
+    try {
+      const success = await verifyOtp(email, otp, role);
 
-    if (success) {
-      window.location.href = "/";
-    } else {
-      alert("Invalid OTP");
+      if (success) {
+        window.location.href = "/";
+      } else {
+        setError("Invalid OTP");
+      }
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Invalid OTP");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -51,6 +68,11 @@ export default function AuthForm({ role }: { role: "donor" | "ngo" }) {
 
   return (
     <div className="auth-form">
+      <div className="auth-form-heading">
+        <div className="auth-kicker">{role === "ngo" ? "Organization access" : "Supporter access"}</div>
+        <h2>{title}</h2>
+        <p>{subtitle}</p>
+      </div>
       {step === "email" ? (
         <>
           <button
@@ -63,26 +85,38 @@ export default function AuthForm({ role }: { role: "donor" | "ngo" }) {
             {googleLoading ? "Connecting..." : "Continue with Google"}
           </button>
           <div className="auth-divider">or</div>
-          <input
-            placeholder="Enter email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <button onClick={handleSendOtp} disabled={loading}>
+          <label className="auth-field">
+            <span>Email address</span>
+            <input
+              placeholder="you@example.com"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </label>
+          <button className="auth-primary-btn" onClick={handleSendOtp} disabled={loading || !email} type="button">
             {loading ? "Sending..." : "Send OTP"}
           </button>
-          {googleError && <p className="auth-error">{googleError}</p>}
+          {(googleError || error) && <p className="auth-error">{googleError || error}</p>}
         </>
       ) : (
         <>
-          <input
-            placeholder="Enter OTP"
-            value={otp}
-            onChange={(e) => setOtp(e.target.value)}
-          />
-          <button onClick={handleVerifyOtp} disabled={loading}>
+          <label className="auth-field">
+            <span>One-time password</span>
+            <input
+              placeholder="Enter OTP"
+              inputMode="numeric"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+            />
+          </label>
+          <button className="auth-primary-btn" onClick={handleVerifyOtp} disabled={loading || !otp} type="button">
             {loading ? "Verifying..." : "Verify"}
           </button>
+          <button className="auth-link-btn" onClick={() => setStep("email")} type="button">
+            Use another email
+          </button>
+          {error && <p className="auth-error">{error}</p>}
         </>
       )}
       <style jsx>{`
@@ -90,7 +124,7 @@ export default function AuthForm({ role }: { role: "donor" | "ngo" }) {
           align-items: center;
           background: #fff;
           border: 1px solid #dadce0;
-          border-radius: 6px;
+          border-radius: 8px;
           color: #202124;
           display: flex;
           font-weight: 600;

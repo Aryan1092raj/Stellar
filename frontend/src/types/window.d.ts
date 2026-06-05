@@ -25,6 +25,7 @@ interface AlbedoAPI {
 }
 
 interface Window {
+  freighter?: boolean;
   freighterApi?: FreighterApi;
   xBullSDK?: XBullSDK;
   albedo?: AlbedoAPI;

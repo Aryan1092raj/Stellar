@@ -105,7 +105,7 @@ export default function NGOSection() {
         </div>
       </div>
     )}
-    <div style={{ marginTop: 8, padding: 12, background: 'var(--gray-100)', borderRadius: 8 }}>
+    <div id="ngo-registration" style={{ marginTop: 8, padding: 12, background: 'var(--gray-100)', borderRadius: 8 }}>
       <h4 style={{ marginBottom: 8 }}>NGO Registration</h4>
       <form onSubmit={submit} className="stack">
         <input className="form-control" placeholder="Name" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />

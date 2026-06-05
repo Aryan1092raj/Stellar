@@ -6,7 +6,8 @@
     "build": "tsc -p .",
     "start": "node dist/server.js",
     "test": "jest --passWithNoTests",
-    "seed:ngos": "ts-node src/scripts/seedIndianNGOs.ts"
+    "seed:ngos": "ts-node src/scripts/seedIndianNGOs.ts",
+    "import:ngos": "ts-node src/scripts/importIndianNGOs.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
