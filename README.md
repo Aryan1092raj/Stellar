@@ -9,7 +9,6 @@ Donations are recorded with geolocation metadata, NGOs submit impact evidence, a
 - **Smart contracts (Soroban/Rust)** for donation flow, NGO verification, escrow, token handling, NFTs, and evidence
 - **Backend API** (Express + TypeScript + Prisma)
 - **Frontend app** (Next.js 14 + TypeScript + React)
-- **Firebase functions** workspace (Genkit/Firebase tooling)
 - Deployment and utility scripts
 
 ## Architecture
@@ -31,7 +30,6 @@ Backend API (Express)
 /backend        Express API + Prisma schema
 /frontend       Next.js UI
 /contracts      Soroban smart contracts
-/functions      Firebase functions workspace
 /infra          Docker compose and infra helpers
 /scripts        Contract deployment scripts
 ```
@@ -180,17 +178,10 @@ npm run build
 npm test
 ```
 
-### Firebase functions
-
-```bash
-cd functions
-npm run build
-npm run lint
-```
-
 ## Notes
 
 - Legacy demo wallet API endpoints are retired; current wallet flow is handled through real wallet integration in the frontend donation/auth paths.
+- Legacy Firebase hosting config and Firestore exports were removed from the deploy path. Firebase is still used through configured auth credentials where required.
 - The root-level `start.sh` script exists for local startup orchestration.
 - Additional docs: `WORKFLOW.md`, `DOCUMENTATION.md`, `DEPLOY.md`, `QUICKREF.txt`.
 
