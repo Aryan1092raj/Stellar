@@ -1,14 +1,29 @@
 "use client";
-import { PropsWithChildren } from 'react';
+import React, { PropsWithChildren } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-export default function Modal({ open, onClose, children, title }: PropsWithChildren<{ open: boolean; onClose: () => void; title?: string }>) {
-  if (!open) return null;
+interface ModalProps {
+  open: boolean;
+  onClose: () => void;
+  title?: string;
+}
+
+export default function Modal({
+  open,
+  onClose,
+  children,
+  title,
+}: PropsWithChildren<ModalProps>) {
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={e => e.stopPropagation()}>
-        {title && <div className="modal-title">{title}</div>}
-        <div>{children}</div>
-      </div>
-    </div>
+    <Dialog open={open} onOpenChange={(val) => !val && onClose()}>
+      <DialogContent className="max-w-md p-6">
+        {title && (
+          <DialogHeader>
+            <DialogTitle>{title}</DialogTitle>
+          </DialogHeader>
+        )}
+        <div className="pt-2">{children}</div>
+      </DialogContent>
+    </Dialog>
   );
 }

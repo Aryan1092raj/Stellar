@@ -19,7 +19,14 @@ app.use(helmet());
 
 // CORS configuration
 app.use(cors({
-  origin: (origin, cb) => (!origin || ALLOWED.includes(origin)) ? cb(null, true) : cb(new Error('CORS blocked')),
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
+    if (ALLOWED.includes(origin)) return cb(null, true);
+    if (process.env.NODE_ENV === 'development' && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+      return cb(null, true);
+    }
+    return cb(new Error('CORS blocked'));
+  },
   credentials: true,
 }));
 
